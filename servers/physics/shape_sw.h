@@ -28,7 +28,6 @@
 /*************************************************************************/
 #ifndef SHAPE_SW_H
 #define SHAPE_SW_H
-#undef NEON
 #include "servers/physics_server.h"
 #include "bsp_tree.h"
 #include "geometry.h"

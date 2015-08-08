@@ -303,11 +303,11 @@ Rect RectEvenWidth(Rect r)
 void xfixedsize(Display *dsp, Window win, int sizex, int sizey)
 {
     XSizeHints *hints = XAllocSizeHints();
-    hints->flags = PMinSize | PMaxSize;
+    hints->flags = PMinSize ;//| PMaxSize;
     hints->min_width = sizex;
-    hints->max_width = sizex;
+    //hints->max_width = sizex;
     hints->min_height = sizey;
-    hints->max_height = sizey;
+    //hints->max_height = sizey;
     XSetWMNormalHints(dsp, win, hints);
 }
 
