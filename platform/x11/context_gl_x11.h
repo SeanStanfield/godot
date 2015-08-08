@@ -77,7 +77,14 @@ public:
 #include "os/os.h"
 #include "drivers/gl_context/context_gl.h"
 #include <X11/Xlib.h>
+#include <X11/Xatom.h>
+#include <X11/Xutil.h>
+#include <GLES2/gl2.h>
 #include <EGL/egl.h>
+#include <EGL/eglext_brcm.h>
+#include <assert.h>
+#include <unistd.h>
+#include "bcm_host.h"
 
 
 struct ContextGL_X11_Private;
