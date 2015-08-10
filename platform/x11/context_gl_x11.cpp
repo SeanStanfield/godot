@@ -229,6 +229,7 @@ static XWindowAttributes Xgwa;
 static GC Xgc; 
 static XImage *Ximage = 0;
 static Rect Xwindowrect;
+static Rect EglSurfaceRect;
 
 //// EGL globals
 static EGLDisplay egl_display;
@@ -323,39 +324,47 @@ void ContextGL_X11::make_current() {
 	eglMakeCurrent(egl_display, egl_surface, egl_surface, egl_context);
 }
 void ContextGL_X11::swap_buffers() {
+	printf("swap\n");
 	static unsigned int *pixbuffer;
     static int pixbufferbytes;
     int orgx, orgy, sizex, sizey;
     int winsizex, winsizey;
 	Rect copyrect = Xwindowrect;
-    copyrect = RectIntersection(Xwindowrect, copyrect);
+    //copyrect = RectIntersection(Xwindowrect, copyrect);
     if(RectIsNull(copyrect))
 	return;
     copyrect = RectEvenWidth(copyrect);	// force copy rect to be even
     winsizex = Xwindowrect.sizex;
     winsizey = Xwindowrect.sizey;
-    if(winsizex & 1) {
-	fprintf(stderr, "Error: window size x must be even\n");
-	return;
+    if( ((int)copyrect.sizex) & 1) {
+		fprintf(stderr, "Error: window size x must be even\n");
+		return;
     }
 
     int nbytes = winsizex * winsizey * 4;
     if(pixbufferbytes != nbytes) {
+		printf("new pixbuffer\n");
         if(pixbuffer)
             free(pixbuffer);
         pixbuffer = (unsigned int *)malloc(nbytes);
         pixbufferbytes = nbytes;
     }
+    printf("glFinish\n");
     glFinish();
+    printf("glReadPixels\n");
     glReadPixels(copyrect.orgx, copyrect.orgy, copyrect.sizex, copyrect.sizey, 
 						GL_RGBA, GL_UNSIGNED_BYTE, pixbuffer);
+	printf("copy w:%d h:%d\n", (int)copyrect.sizex, (int)copyrect.sizey);
+	printf("window w:%d h:%d\n", winsizex, winsizey);
     unsigned int *pixptr = pixbuffer;
     int count, x, y;
     for(y=0; y<copyrect.sizey; y++) {
         int srcy = copyrect.sizey-1-y;		// flip y for X windows
         unsigned int *dest = ((unsigned int*)(&(Ximage->data[0])))+(srcy*(winsizex/2));
         count = copyrect.sizex/2;
+        //printf("\ny:%d h:%d w:%d\n",y,winsizey,winsizex);
         while(count--) {
+			//printf(" x:%d ", count*2);
             unsigned int src0 = pixptr[0];
             unsigned int src1 = pixptr[1];
             pixptr += 2;
@@ -368,11 +377,93 @@ void ContextGL_X11::swap_buffers() {
                       ((src0 & (0xf8<<16))>>19);
         }
     }
+    printf("XPutImage\n");
     orgx = copyrect.orgx;
     orgy = winsizey-(copyrect.orgy+copyrect.sizey);
     sizex = copyrect.sizex;
     sizey = copyrect.sizey;
     XPutImage(Xdsp, Xwin, Xgc, Ximage, 0, 0, orgx, orgy, sizex, sizey);
+    
+    if ( OS::get_singleton()->get_video_mode().width != Xwindowrect.sizex || OS::get_singleton()->get_video_mode().height != Xwindowrect.sizey )
+    {
+		printf("new resolution\n");
+		
+		release_current();
+		eglDestroySurface(egl_display, egl_surface);
+		
+		EGLint attr[] = { // some attributes to set up our egl-interface
+			EGL_RED_SIZE, 8,
+			EGL_GREEN_SIZE, 8,
+			EGL_BLUE_SIZE, 8,
+			EGL_ALPHA_SIZE, 8,
+			EGL_DEPTH_SIZE, 16,
+			EGL_SURFACE_TYPE,
+			EGL_PIXMAP_BIT | EGL_OPENGL_ES2_BIT,
+			EGL_NONE
+		};
+		EGLint num_config;
+		EGLConfig ecfg; // todo: if this was not just local ...
+
+		if (!eglChooseConfig(egl_display, attr, &ecfg, 1, &num_config)) {
+			fprintf(stderr, "Failed to choose config (eglError: %s)\n", eglGetError());
+			return OK;
+		}
+		if (num_config != 1) {
+			fprintf(stderr, "Didn't get exactly one config, but %d\n", num_config);
+			return OK;
+		}
+		
+		
+		EGLint rt;
+		EGLint pixel_format = EGL_PIXEL_FORMAT_ARGB_8888_BRCM;
+		eglGetConfigAttrib(egl_display, ecfg, EGL_RENDERABLE_TYPE, &rt);
+		if (rt & EGL_OPENGL_ES_BIT) {
+			pixel_format |= EGL_PIXEL_FORMAT_RENDER_GLES_BRCM;
+			pixel_format |= EGL_PIXEL_FORMAT_GLES_TEXTURE_BRCM;
+		}
+		if (rt & EGL_OPENGL_ES2_BIT) {
+			pixel_format |= EGL_PIXEL_FORMAT_RENDER_GLES2_BRCM;
+			pixel_format |= EGL_PIXEL_FORMAT_GLES2_TEXTURE_BRCM;
+		}
+		if (rt & EGL_OPENVG_BIT) {
+			pixel_format |= EGL_PIXEL_FORMAT_RENDER_VG_BRCM;
+			pixel_format |= EGL_PIXEL_FORMAT_VG_IMAGE_BRCM;
+		}
+		if (rt & EGL_OPENGL_BIT) {
+			pixel_format |= EGL_PIXEL_FORMAT_RENDER_GL_BRCM;
+		}
+		
+		// new egl surface ...
+		EGLint pixmap[5];
+		pixmap[0] = 0;
+		pixmap[1] = 0;
+		pixmap[2] = OS::get_singleton()->get_video_mode().width;
+		pixmap[3] = OS::get_singleton()->get_video_mode().height;
+		pixmap[4] = pixel_format;
+		#define WINDOW_WIDTH (OS::get_singleton()->get_video_mode().width)
+		#define WINDOW_HEIGHT (OS::get_singleton()->get_video_mode().height)
+		eglCreateGlobalImageBRCM(WINDOW_WIDTH, WINDOW_HEIGHT, pixmap[4], 0, WINDOW_WIDTH*4, pixmap);
+		egl_surface = eglCreatePixmapSurface(egl_display, ecfg, pixmap, 0);
+		if (egl_surface == EGL_NO_SURFACE) {
+			fprintf(stderr, "Unable to create EGL surface (eglError: %s)\n", eglGetError());
+			return;
+		}
+		
+		//// associate the egl-context with the egl-surface
+		eglMakeCurrent(egl_display, egl_surface, egl_surface, egl_context);
+		
+		Xwindowrect.sizex = OS::get_singleton()->get_video_mode().width;
+		Xwindowrect.sizey = OS::get_singleton()->get_video_mode().height;
+		
+		XDestroyImage(Ximage);
+		char *buf = (char *)malloc(OS::get_singleton()->get_video_mode().width*OS::get_singleton()->get_video_mode().height*2);
+		Ximage = XCreateImage(Xdsp, 
+                DefaultVisual(Xdsp, DefaultScreen(Xdsp)),
+                DefaultDepth(Xdsp, DefaultScreen(Xdsp)),
+                ZPixmap, 0, buf, OS::get_singleton()->get_video_mode().width, OS::get_singleton()->get_video_mode().height, 16, 0);
+		
+	}
+    
 	//eglSwapBuffers(egl_display, egl_surface);
 }
 
@@ -445,12 +536,13 @@ Error ContextGL_X11::initialize()
                 DefaultDepth(Xdsp, DefaultScreen(Xdsp)),
                 ZPixmap, 0, buf, Xgwa.width, Xgwa.height, 16, 0);
     Xwindowrect = RectMake(0,0,Xgwa.width,Xgwa.height);
+    EglSurfaceRect = RectMake(0,0,Xgwa.width,Xgwa.height);
     
     x11_window = Xwin;
     
     
     
-EGLint attr[] = { // some attributes to set up our egl-interface
+	EGLint attr[] = { // some attributes to set up our egl-interface
         EGL_RED_SIZE, 8,
         EGL_GREEN_SIZE, 8,
         EGL_BLUE_SIZE, 8,
