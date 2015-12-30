@@ -71,6 +71,8 @@ class ScriptEditorDebugger : public Control {
 	int error_count;
 	int last_error_count;
 
+	bool hide_on_stop;
+
 
 
 	TextureButton *tb;
@@ -95,6 +97,10 @@ class ScriptEditorDebugger : public Control {
 
 	Tree *perf_monitors;
 	Control *perf_draw;
+
+	Tree *vmem_tree;
+	Button *vmem_refresh;
+	LineEdit *vmem_total;
 
 	Tree *stack_dump;
 	PropertyEditor *inspector;
@@ -127,6 +133,7 @@ class ScriptEditorDebugger : public Control {
 	void _scene_tree_request();
 	void _parse_message(const String& p_msg,const Array& p_data);
 
+	void _video_mem_request();
 
 	int _get_node_path_cache(const NodePath& p_path);
 
@@ -177,6 +184,7 @@ public:
 
 	void update_live_edit_root();
 
+	void set_hide_on_stop(bool p_hide);
 
 	virtual Size2 get_minimum_size() const;
 	ScriptEditorDebugger(EditorNode *p_editor=NULL);

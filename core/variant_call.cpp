@@ -333,7 +333,7 @@ static void _call_##m_type##_##m_method(Variant& r_ret,Variant& p_self,const Var
 	VCALL_LOCALMEM1R(Vector2,dot);
 	VCALL_LOCALMEM1R(Vector2,slide);
 	VCALL_LOCALMEM1R(Vector2,reflect);
-	VCALL_LOCALMEM0R(Vector2,atan2);
+	VCALL_LOCALMEM0R(Vector2,angle);
 //	VCALL_LOCALMEM1R(Vector2,cross);
 
 	VCALL_LOCALMEM0R(Rect2,get_area);
@@ -359,6 +359,8 @@ static void _call_##m_type##_##m_method(Variant& r_ret,Variant& p_self,const Var
 	VCALL_LOCALMEM1R(Vector3, dot);
 	VCALL_LOCALMEM1R(Vector3, cross);
 	VCALL_LOCALMEM0R(Vector3, abs);
+	VCALL_LOCALMEM0R(Vector3, floor);
+	VCALL_LOCALMEM0R(Vector3, ceil);
 	VCALL_LOCALMEM1R(Vector3, distance_to);
 	VCALL_LOCALMEM1R(Vector3, distance_squared_to);
 	VCALL_LOCALMEM1R(Vector3, slide);
@@ -407,6 +409,7 @@ static void _call_##m_type##_##m_method(Variant& r_ret,Variant& p_self,const Var
 	VCALL_LOCALMEM0R(Quat,normalized);
 	VCALL_LOCALMEM0R(Quat,inverse);
 	VCALL_LOCALMEM1R(Quat,dot);
+	VCALL_LOCALMEM1R(Quat,xform);
 	VCALL_LOCALMEM2R(Quat,slerp);
 	VCALL_LOCALMEM2R(Quat,slerpni);
 	VCALL_LOCALMEM4R(Quat,cubic_slerp);
@@ -447,6 +450,9 @@ static void _call_##m_type##_##m_method(Variant& r_ret,Variant& p_self,const Var
 	VCALL_LOCALMEM0(Array,clear);
 	VCALL_LOCALMEM0R(Array,hash);
 	VCALL_LOCALMEM1(Array,push_back);
+	VCALL_LOCALMEM1(Array,push_front);
+	VCALL_LOCALMEM0(Array,pop_back);
+	VCALL_LOCALMEM0(Array,pop_front);
 	VCALL_LOCALMEM1(Array,append);
 	VCALL_LOCALMEM1(Array,resize);
 	VCALL_LOCALMEM2(Array,insert);
@@ -753,7 +759,7 @@ static void _call_##m_type##_##m_method(Variant& r_ret,Variant& p_self,const Var
 	}
 
 	static void Matrix32_init2(Variant& r_ret,const Variant** p_args) {
-		
+
 		Matrix32 m(*p_args[0], *p_args[1]);
 		r_ret=m;
 	}
@@ -853,6 +859,11 @@ static void _call_##m_type##_##m_method(Variant& r_ret,Variant& p_self,const Var
 	static void Transform_init2(Variant& r_ret,const Variant** p_args) {
 
 		r_ret=Transform(p_args[0]->operator Matrix3(),p_args[1]->operator Vector3());
+	}
+
+	static void Image_init1(Variant& r_ret, const Variant** p_args) {
+
+		r_ret=Image(*p_args[0],*p_args[1],*p_args[2],Image::Format(p_args[3]->operator int()));
 	}
 
 	static void add_constructor(VariantConstructFunc p_func,const Variant::Type p_type,
@@ -956,7 +967,7 @@ Variant Variant::call(const StringName& p_method,const Variant** p_args,int p_ar
 #define VCALL(m_type,m_method) _VariantCall::_call_##m_type##_##m_method
 
 
-Variant Variant::construct(const Variant::Type p_type,const Variant** p_args,int p_argcount,CallError &r_error) {
+Variant Variant::construct(const Variant::Type p_type, const Variant** p_args, int p_argcount, CallError &r_error, bool p_strict) {
 
 	r_error.error=Variant::CallError::CALL_ERROR_INVALID_METHOD;
 	ERR_FAIL_INDEX_V(p_type,VARIANT_MAX,Variant());
@@ -1032,7 +1043,7 @@ Variant Variant::construct(const Variant::Type p_type,const Variant** p_args,int
 
 	} else if (p_argcount==1 && p_args[0]->type==p_type) {
 		return *p_args[0]; //copy construct
-	} else if (p_argcount==1 && Variant::can_convert(p_args[0]->type,p_type)) {
+	} else if (p_argcount==1 && (!p_strict || Variant::can_convert(p_args[0]->type,p_type))) {
 		//near match construct
 
 		switch(p_type) {
@@ -1133,7 +1144,7 @@ void Variant::get_method_list(List<MethodInfo> *p_list) const {
 		if (fd.returns)
 			ret.name="ret";
 		mi.return_val=ret;
-#endif		
+#endif
 
 		p_list->push_back(mi);
 	}
@@ -1288,13 +1299,13 @@ _VariantCall::addfunc(Variant::m_vtype,Variant::m_ret,_SCS(#m_method),VCALL(m_cl
 	ADDFUNC1(STRING,STRING,String,pad_decimals,INT,"digits",varray());
 	ADDFUNC1(STRING,STRING,String,pad_zeros,INT,"digits",varray());
 
-	ADDFUNC0(STRING,STRING,String,to_ascii,varray());
-	ADDFUNC0(STRING,STRING,String,to_utf8,varray());
+	ADDFUNC0(STRING,RAW_ARRAY,String,to_ascii,varray());
+	ADDFUNC0(STRING,RAW_ARRAY,String,to_utf8,varray());
 
 
 	ADDFUNC0(VECTOR2,VECTOR2,Vector2,normalized,varray());
 	ADDFUNC0(VECTOR2,REAL,Vector2,length,varray());
-	ADDFUNC0(VECTOR2,REAL,Vector2,atan2,varray());
+	ADDFUNC0(VECTOR2,REAL,Vector2,angle,varray());
 	ADDFUNC0(VECTOR2,REAL,Vector2,length_squared,varray());
 	ADDFUNC1(VECTOR2,REAL,Vector2,distance_to,VECTOR2,"to",varray());
 	ADDFUNC1(VECTOR2,REAL,Vector2,distance_squared_to,VECTOR2,"to",varray());
@@ -1336,6 +1347,8 @@ _VariantCall::addfunc(Variant::m_vtype,Variant::m_ret,_SCS(#m_method),VCALL(m_cl
 	ADDFUNC1(VECTOR3,REAL,Vector3,dot,VECTOR3,"b",varray());
 	ADDFUNC1(VECTOR3,VECTOR3,Vector3,cross,VECTOR3,"b",varray());
 	ADDFUNC0(VECTOR3,VECTOR3,Vector3,abs,varray());
+	ADDFUNC0(VECTOR3,VECTOR3,Vector3,floor,varray());
+	ADDFUNC0(VECTOR3,VECTOR3,Vector3,ceil,varray());
 	ADDFUNC1(VECTOR3,REAL,Vector3,distance_to,VECTOR3,"b",varray());
 	ADDFUNC1(VECTOR3,REAL,Vector3,distance_squared_to,VECTOR3,"b",varray());
 	ADDFUNC1(VECTOR3,VECTOR3,Vector3,slide,VECTOR3,"by",varray());
@@ -1357,6 +1370,7 @@ _VariantCall::addfunc(Variant::m_vtype,Variant::m_ret,_SCS(#m_method),VCALL(m_cl
 	ADDFUNC0(QUAT,QUAT,Quat,normalized,varray());
 	ADDFUNC0(QUAT,QUAT,Quat,inverse,varray());
 	ADDFUNC1(QUAT,REAL,Quat,dot,QUAT,"b",varray());
+	ADDFUNC1(QUAT,VECTOR3,Quat,xform,VECTOR3,"v",varray());
 	ADDFUNC2(QUAT,QUAT,Quat,slerp,QUAT,"b",REAL,"t",varray());
 	ADDFUNC2(QUAT,QUAT,Quat,slerpni,QUAT,"b",REAL,"t",varray());
 	ADDFUNC4(QUAT,QUAT,Quat,cubic_slerp,QUAT,"b",QUAT,"pre_a",QUAT,"post_b",REAL,"t",varray());
@@ -1415,12 +1429,15 @@ _VariantCall::addfunc(Variant::m_vtype,Variant::m_ret,_SCS(#m_method),VCALL(m_cl
 	ADDFUNC0(ARRAY,NIL,Array,clear,varray());
 	ADDFUNC0(ARRAY,INT,Array,hash,varray());
 	ADDFUNC1(ARRAY,NIL,Array,push_back,NIL,"value",varray());
+	ADDFUNC1(ARRAY,NIL,Array,push_front,NIL,"value",varray());
 	ADDFUNC1(ARRAY,NIL,Array,append,NIL,"value",varray());
 	ADDFUNC1(ARRAY,NIL,Array,resize,INT,"pos",varray());
 	ADDFUNC2(ARRAY,NIL,Array,insert,INT,"pos",NIL,"value",varray());
 	ADDFUNC1(ARRAY,NIL,Array,remove,INT,"pos",varray());
 	ADDFUNC1(ARRAY,NIL,Array,erase,NIL,"value",varray());
 	ADDFUNC1(ARRAY,INT,Array,find,NIL,"value",varray());
+	ADDFUNC0(ARRAY,NIL,Array,pop_back,varray());
+	ADDFUNC0(ARRAY,NIL,Array,pop_front,varray());
 	ADDFUNC0(ARRAY,NIL,Array,sort,varray());
 	ADDFUNC2(ARRAY,NIL,Array,sort_custom,OBJECT,"obj",STRING,"func",varray());
 	ADDFUNC0(ARRAY,NIL,Array,invert,varray());
@@ -1535,10 +1552,10 @@ _VariantCall::addfunc(Variant::m_vtype,Variant::m_ret,_SCS(#m_method),VCALL(m_cl
 	ADDFUNC1(TRANSFORM,NIL,Transform,xform,NIL,"v",varray());
 	ADDFUNC1(TRANSFORM,NIL,Transform,xform_inv,NIL,"v",varray());
 
-#ifdef DEBUG_ENABLED	
+#ifdef DEBUG_ENABLED
 	_VariantCall::type_funcs[Variant::TRANSFORM].functions["xform"].returns=true;
 	_VariantCall::type_funcs[Variant::TRANSFORM].functions["xform_inv"].returns=true;
-#endif	
+#endif
 
 	ADDFUNC0(INPUT_EVENT,BOOL,InputEvent,is_pressed,varray());
 	ADDFUNC1(INPUT_EVENT,BOOL,InputEvent,is_action,STRING,"action",varray());
@@ -1576,6 +1593,8 @@ _VariantCall::addfunc(Variant::m_vtype,Variant::m_ret,_SCS(#m_method),VCALL(m_cl
 
 	_VariantCall::add_constructor(_VariantCall::Transform_init1,Variant::TRANSFORM,"x_axis",Variant::VECTOR3,"y_axis",Variant::VECTOR3,"z_axis",Variant::VECTOR3,"origin",Variant::VECTOR3);
 	_VariantCall::add_constructor(_VariantCall::Transform_init2,Variant::TRANSFORM,"basis",Variant::MATRIX3,"origin",Variant::VECTOR3);
+
+	_VariantCall::add_constructor(_VariantCall::Image_init1,Variant::IMAGE,"width",Variant::INT,"height",Variant::INT,"mipmaps",Variant::BOOL,"format",Variant::INT);
 
 	/* REGISTER CONSTANTS */
 
@@ -1635,9 +1654,3 @@ void unregister_variant_methods() {
 
 
 }
-
-
-
-
-
-

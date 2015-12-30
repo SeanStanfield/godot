@@ -1,6 +1,7 @@
 
 import os
 import sys	
+import platform
 
 
 def is_active():
@@ -44,7 +45,7 @@ def can_build():
 		print("xinerama not found.. x11 disabled.")
 		return False
 
-	
+
 	return True # X11 enabled
   
 def get_opts():
@@ -63,7 +64,7 @@ def get_flags():
 	return [
 	('builtin_zlib', 'no'),
 	("openssl", "yes"),
-	("theora","no"),
+	#("theora","no"),
         ]
 			
 
@@ -118,6 +119,8 @@ def configure(env):
 	elif (env["target"]=="release_debug"):
 
 		env.Append(CCFLAGS=['-O2','-ffast-math','-DDEBUG_ENABLED'])
+		if (env["debug_release"]=="yes"):
+			env.Append(CCFLAGS=['-g2'])
 
 	elif (env["target"]=="debug"):
 
@@ -131,12 +134,34 @@ def configure(env):
 		env.ParseConfig('pkg-config openssl --cflags --libs')
 
 
-	env.ParseConfig('pkg-config freetype2 --cflags --libs')
-	env.Append(CCFLAGS=['-DFREETYPE_ENABLED'])
+	if (env["freetype"]=="yes"):
+		env.ParseConfig('pkg-config freetype2 --cflags --libs')
+
+
+	if (env["freetype"]!="no"):
+		env.Append(CCFLAGS=['-DFREETYPE_ENABLED'])
+		if (env["freetype"]=="builtin"):
+			env.Append(CPPPATH=['#tools/freetype'])
+			env.Append(CPPPATH=['#tools/freetype/freetype/include'])
+
+
 
 	
 	env.Append(CPPFLAGS=['-DOPENGL_ENABLED','-DGLEW_ENABLED'])
-	env.Append(CPPFLAGS=["-DALSA_ENABLED"])
+	if platform.system() == 'Linux':
+		env.Append(CPPFLAGS=["-DALSA_ENABLED"])
+		env.Append(LIBS=['asound'])
+
+		if not os.system("pkg-config --exists libudev"):
+			if not os.system("pkg-config --exists libevdev"):
+				print("Enabling udev/evdev")
+				env.Append(CPPFLAGS=["-DJOYDEV_ENABLED"])
+				env.ParseConfig('pkg-config libudev --cflags --libs')
+				env.ParseConfig('pkg-config libevdev --cflags --libs')
+			else:
+				print("libevdev development libraries not found, disabling gamepad support")
+		else:
+			print("libudev development libraries not found, disabling gamepad support")
 
 	if (env["pulseaudio"]=="yes"):
 		if not os.system("pkg-config --exists libpulse-simple"):
@@ -147,7 +172,7 @@ def configure(env):
 			print("PulseAudio development libraries not found, disabling driver")
 
 	env.Append(CPPFLAGS=['-DX11_ENABLED','-DUNIX_ENABLED','-DGLES2_ENABLED','-DGLES_OVER_GL'])
-	env.Append(LIBS=['GL', 'GLU', 'pthread','asound','z']) #TODO detect linux/BSD!
+	env.Append(LIBS=['GL', 'GLU', 'pthread', 'z'])
 	#env.Append(CPPFLAGS=['-DMPC_FIXED_POINT'])
 
 #host compiler is default..
@@ -170,4 +195,6 @@ def configure(env):
 	if(env["new_wm_api"]=="yes"):
 		env.Append(CPPFLAGS=['-DNEW_WM_API'])
 		env.ParseConfig('pkg-config xinerama --cflags --libs')
+
+	env["x86_opt_gcc"]=True
 

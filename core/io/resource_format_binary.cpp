@@ -853,6 +853,8 @@ String ResourceInteractiveLoaderBinary::get_unicode_string() {
 	if (len>str_buf.size()) {
 		str_buf.resize(len);
 	}
+	if (len==0)
+		return String();
 	f->get_buffer((uint8_t*)&str_buf[0],len);
 	String s;
 	s.parse_utf8(&str_buf[0]);
@@ -905,7 +907,7 @@ void ResourceInteractiveLoaderBinary::open(FileAccess *p_f) {
 
 		error=ERR_FILE_UNRECOGNIZED;
 		ERR_EXPLAIN("Unrecognized binary resource file: "+local_path);
-		ERR_FAIL_V();
+		ERR_FAIL();
 	}
 
 	bool big_endian = f->get_32();
@@ -2172,10 +2174,11 @@ Error ResourceFormatSaverBinaryInstance::save(const String &p_path,const RES& p_
 
 			save_unicode_string("local://"+itos(r->get_subindex()));
 			if (takeover_paths) {
-				r->set_path(p_path+"::"+itos(ofs_pos.size()),true);
+				r->set_path(p_path+"::"+itos(r->get_subindex()),true);
 			}
-		} else
+		} else {
 			save_unicode_string(r->get_path()); //actual external
+		}
 		ofs_pos.push_back(f->get_pos());
 		f->store_64(0); //offset in 64 bits
 	}

@@ -41,6 +41,8 @@
 #include "io/md5.h"
 #include "io_plugins/editor_texture_import_plugin.h"
 #include "tools/editor/plugins/script_editor_plugin.h"
+#include "io/zip_io.h"
+
 
 String EditorImportPlugin::validate_source_path(const String& p_path) {
 
@@ -255,7 +257,16 @@ static void _add_filter_to_list(Set<StringName>& r_list,const String& p_filter) 
 
 }
 
+Vector<uint8_t> EditorExportPlatform::get_exported_file_default(String& p_fname) const {
 
+	FileAccess *f = FileAccess::open(p_fname,FileAccess::READ);
+	ERR_FAIL_COND_V(!f,Vector<uint8_t>());
+	Vector<uint8_t> ret;
+	ret.resize(f->get_len());
+	int rbs = f->get_buffer(ret.ptr(),ret.size());
+	memdelete(f);
+	return ret;
+}
 
 Vector<uint8_t> EditorExportPlatform::get_exported_file(String& p_fname) const {
 
@@ -270,13 +281,9 @@ Vector<uint8_t> EditorExportPlatform::get_exported_file(String& p_fname) const {
 	}
 
 
-	FileAccess *f = FileAccess::open(p_fname,FileAccess::READ);
-	ERR_FAIL_COND_V(!f,Vector<uint8_t>());
-	Vector<uint8_t> ret;
-	ret.resize(f->get_len());
-	int rbs = f->get_buffer(ret.ptr(),ret.size());
-	memdelete(f);
-	return ret;
+	return get_exported_file_default(p_fname);
+
+
 }
 
 Vector<StringName> EditorExportPlatform::get_dependencies(bool p_bundles) const {
@@ -392,6 +399,40 @@ Vector<StringName> EditorExportPlatform::get_dependencies(bool p_bundles) const 
 
 	return ret;
 
+}
+
+String EditorExportPlatform::find_export_template(String template_file_name, String *err) const {
+	String user_file = EditorSettings::get_singleton()->get_settings_path()
+		+"/templates/"+template_file_name;
+	String system_file=OS::get_singleton()->get_installed_templates_path();
+	bool has_system_path=(system_file!="");
+	system_file+=template_file_name;
+
+	// Prefer user file
+	if (FileAccess::exists(user_file)) {
+		return user_file;
+	}
+
+	// Now check system file
+	if (has_system_path) {
+		if (FileAccess::exists(system_file)) {
+			return system_file;
+		}
+	}
+
+	// Not found
+	if (err) {
+		*err+="No export template found at \""+user_file+"\"";
+		if (has_system_path)
+			*err+="\n or \""+system_file+"\".";
+		else
+			*err+=".";
+	}
+	return "";
+}
+
+bool EditorExportPlatform::exists_export_template(String template_file_name, String *err) const {
+	return find_export_template(template_file_name,err)!="";
 }
 
 ///////////////////////////////////////
@@ -557,6 +598,7 @@ Error EditorExportPlatform::export_project_files(EditorExportSaveFunction p_func
 		group_shrink*=EditorImportExport::get_singleton()->get_export_image_shrink();
 
 		switch(EditorImportExport::get_singleton()->image_export_group_get_image_action(E->get())) {
+			case EditorImportExport::IMAGE_ACTION_KEEP:
 			case EditorImportExport::IMAGE_ACTION_NONE: {
 
 				switch(EditorImportExport::get_singleton()->get_export_image_action()) {
@@ -581,7 +623,7 @@ Error EditorExportPlatform::export_project_files(EditorExportSaveFunction p_func
 			} break; //use default
 			case EditorImportExport::IMAGE_ACTION_COMPRESS_RAM: {
 				group_format=EditorTextureImportPlugin::IMAGE_FORMAT_COMPRESS_RAM;
-			} break; //use default
+			} break; //use default						
 		}
 
 		String image_list_md5;
@@ -825,13 +867,43 @@ Error EditorExportPlatform::export_project_files(EditorExportSaveFunction p_func
 
 
 	StringName engine_cfg="res://engine.cfg";
+	StringName boot_splash;
+	{
+		String splash=Globals::get_singleton()->get("application/boot_splash"); //avoid splash from being converted
+		splash=splash.strip_edges();
+		if (splash!=String()) {
+			if (!splash.begins_with("res://"))
+				splash="res://"+splash;
+			splash=splash.simplify_path();
+			boot_splash=splash;
+		}
+	}
+	StringName custom_cursor;
+	{
+		String splash=Globals::get_singleton()->get("display/custom_mouse_cursor"); //avoid splash from being converted
+		splash=splash.strip_edges();
+		if (splash!=String()) {
+			if (!splash.begins_with("res://"))
+				splash="res://"+splash;
+			splash=splash.simplify_path();
+			custom_cursor=splash;
+		}
+	}
+
+
+
 
 	for(int i=0;i<files.size();i++) {
 
 		if (remap_files.has(files[i]) || files[i]==engine_cfg) //gonna be remapped (happened before!)
 			continue; //from atlas?
 		String src=files[i];
-		Vector<uint8_t> buf = get_exported_file(src);
+		Vector<uint8_t> buf;
+
+		if (src==boot_splash || src==custom_cursor)
+			buf = get_exported_file_default(src); //bootsplash must be kept if used
+		else
+			buf = get_exported_file(src);
 
 		ERR_CONTINUE( saved.has(src) );
 
@@ -917,11 +989,11 @@ static int _get_pad(int p_alignment, int p_n) {
 	return pad;
 };
 
-void EditorExportPlatform::gen_export_flags(Vector<String> &r_flags, bool p_dumb, bool p_remote_debug) {
+void EditorExportPlatform::gen_export_flags(Vector<String> &r_flags, int p_flags) {
 
 	String host = EditorSettings::get_singleton()->get("network/debug_host");
 
-	if (p_dumb) {
+	if (p_flags&EXPORT_DUMB_CLIENT) {
 		int port = EditorSettings::get_singleton()->get("file_server/port");
 		String passwd = EditorSettings::get_singleton()->get("file_server/password");
 		r_flags.push_back("-rfs");
@@ -932,7 +1004,7 @@ void EditorExportPlatform::gen_export_flags(Vector<String> &r_flags, bool p_dumb
 		}
 	}
 
-	if (p_remote_debug) {
+	if (p_flags&EXPORT_REMOTE_DEBUG) {
 
 		r_flags.push_back("-rdebug");
 		r_flags.push_back(host+":"+String::num(GLOBAL_DEF("debug/debug_port", 6007)));
@@ -956,6 +1028,17 @@ void EditorExportPlatform::gen_export_flags(Vector<String> &r_flags, bool p_dumb
 		}
 
 	}
+
+	if (p_flags&EXPORT_VIEW_COLLISONS) {
+
+		r_flags.push_back("-debugcol");
+	}
+
+	if (p_flags&EXPORT_VIEW_NAVIGATION) {
+
+		r_flags.push_back("-debugnav");
+	}
+
 
 }
 
@@ -981,7 +1064,7 @@ Error EditorExportPlatform::save_pack_file(void *p_userdata,const String& p_path
 		MD5Final(&ctx);
 		pd->f->store_buffer(ctx.digest,16);
 	}
-	pd->ep->step("Storing File: "+p_path,2+p_file*100/p_total);
+	pd->ep->step("Storing File: "+p_path,2+p_file*100/p_total,false);
 	pd->count++;
 	pd->ftmp->store_buffer(p_data.ptr(),p_data.size());
 	if (pd->alignment > 1) {
@@ -994,6 +1077,58 @@ Error EditorExportPlatform::save_pack_file(void *p_userdata,const String& p_path
 	};
 	return OK;
 
+}
+
+Error EditorExportPlatform::save_zip_file(void *p_userdata,const String& p_path, const Vector<uint8_t>& p_data,int p_file,int p_total) {
+
+
+	String path=p_path.replace_first("res://","");
+
+	ZipData *zd = (ZipData*)p_userdata;
+
+	zipFile zip=(zipFile)zd->zip;
+
+	zipOpenNewFileInZip(zip,
+		path.utf8().get_data(),
+		NULL,
+		NULL,
+		0,
+		NULL,
+		0,
+		NULL,
+		Z_DEFLATED,
+		Z_DEFAULT_COMPRESSION);
+
+	zipWriteInFileInZip(zip,p_data.ptr(),p_data.size());
+	zipCloseFileInZip(zip);
+
+	zd->ep->step("Storing File: "+p_path,2+p_file*100/p_total,false);
+	zd->count++;
+	return OK;
+
+}
+
+Error EditorExportPlatform::save_zip(const String& p_path, bool p_make_bundles) {
+
+	EditorProgress ep("savezip","Packing",102);
+
+	//FileAccess *tmp = FileAccess::open(tmppath,FileAccess::WRITE);
+
+	FileAccess *src_f;
+	zlib_filefunc_def io = zipio_create_io_from_file(&src_f);
+	zipFile	zip=zipOpen2(p_path.utf8().get_data(),APPEND_STATUS_CREATE,NULL,&io);
+
+	ZipData zd;
+	zd.count=0;
+	zd.ep=&ep;
+	zd.zip=zip;
+
+
+	Error err = export_project_files(save_zip_file,&zd,p_make_bundles);
+
+	zipClose(zip,NULL);
+
+	return err;
 }
 
 Error EditorExportPlatform::save_pack(FileAccess *dst,bool p_make_bundles, int p_alignment) {
@@ -1072,7 +1207,7 @@ Error EditorExportPlatform::save_pack(FileAccess *dst,bool p_make_bundles, int p
 	return OK;
 }
 
-Error EditorExportPlatformPC::export_project(const String& p_path, bool p_debug, bool p_dumb,bool p_remote_debug) {
+Error EditorExportPlatformPC::export_project(const String& p_path, bool p_debug, int p_flags) {
 
 
 
@@ -1084,19 +1219,32 @@ Error EditorExportPlatformPC::export_project(const String& p_path, bool p_debug,
 
 	ep.step("Setting Up..",0);
 
-	String exe_path = EditorSettings::get_singleton()->get_settings_path()+"/templates/";
-	if (use64) {
-		if (p_debug)
-			exe_path=custom_debug_binary!=""?custom_debug_binary:exe_path+debug_binary64;
-		else
-			exe_path=custom_release_binary!=""?custom_release_binary:exe_path+release_binary64;
-	} else {
+	String exe_path="";
 
-		if (p_debug)
-			exe_path=custom_debug_binary!=""?custom_debug_binary:exe_path+debug_binary32;
-		else
-			exe_path=custom_release_binary!=""?custom_release_binary:exe_path+release_binary32;
+	if (p_debug)
+		exe_path=custom_debug_binary;
+	else
+		exe_path=custom_release_binary;
 
+	if (exe_path=="") {
+		String fname;
+		if (use64) {
+			if (p_debug)
+				fname=debug_binary64;
+			else
+				fname=release_binary64;
+		} else {
+			if (p_debug)
+				fname=debug_binary32;
+			else
+				fname=release_binary32;
+		}
+		String err="";
+		exe_path=find_export_template(fname,&err);
+		if (exe_path=="") {
+			EditorNode::add_io_error(err);
+			return ERR_FILE_CANT_READ;
+		}
 	}
 
 	FileAccess *src_exe=FileAccess::open(exe_path,FileAccess::READ);
@@ -1160,32 +1308,42 @@ bool EditorExportPlatformPC::can_export(String *r_error) const {
 	String err;
 	bool valid=true;
 
-	String exe_path = EditorSettings::get_singleton()->get_settings_path()+"/templates/";
-
-	if (!FileAccess::exists(exe_path+debug_binary32) || !FileAccess::exists(exe_path+release_binary32)) {
-		valid=false;
-		err="No 32 bits export templates found.\nDownload and install export templates.\n";
-	}
-	if (!FileAccess::exists(exe_path+debug_binary64) || !FileAccess::exists(exe_path+release_binary64)) {
+	if (use64 && (!exists_export_template(debug_binary64)) || !exists_export_template(release_binary64)) {
 		valid=false;
 		err="No 64 bits export templates found.\nDownload and install export templates.\n";
 	}
 
-
-	if (custom_debug_binary!="" && !FileAccess::exists(custom_debug_binary)) {
+	if (!use64 && (!exists_export_template(debug_binary32) || !exists_export_template(release_binary32))) {
 		valid=false;
-		err+="Custom debug binary not found.\n";
+		err="No 32 bits export templates found.\nDownload and install export templates.\n";
 	}
 
-	if (custom_release_binary!="" && !FileAccess::exists(custom_release_binary)) {
-		valid=false;
-		err+="Custom release binary not found.\n";
+	if(custom_debug_binary=="" && custom_release_binary=="") {
+		if (r_error) *r_error=err;
+		return valid;
 	}
+
+	bool dvalid = true;
+	bool rvalid = true;
+
+	if(!FileAccess::exists(custom_debug_binary)) {
+		dvalid = false;
+		err = "Custom debug binary not found.\n";
+	}
+
+	if(!FileAccess::exists(custom_release_binary)) {
+		rvalid = false;
+		err = "Custom release binary not found.\n";
+	}
+
+	if (dvalid || rvalid)
+		valid = true;
+	else
+		valid = false;
 
 	if (r_error)
 		*r_error=err;
 	return valid;
-
 }
 
 
@@ -1373,12 +1531,12 @@ EditorImportExport::ImageAction EditorImportExport::get_export_image_action() co
 	return image_action;
 }
 
-void EditorImportExport::set_export_image_shrink(int p_shrink) {
+void EditorImportExport::set_export_image_shrink(float p_shrink) {
 
 	image_shrink=p_shrink;
 }
 
-int EditorImportExport::get_export_image_shrink() const{
+float EditorImportExport::get_export_image_shrink() const{
 
 	return image_shrink;
 }
@@ -1449,12 +1607,12 @@ bool EditorImportExport::image_export_group_get_make_atlas(const StringName& p_e
 	return image_groups[p_export_group].make_atlas;
 
 }
-void EditorImportExport::image_export_group_set_shrink(const StringName& p_export_group,int p_amount){
+void EditorImportExport::image_export_group_set_shrink(const StringName& p_export_group,float p_amount){
 	ERR_FAIL_COND(!image_groups.has(p_export_group));
 	image_groups[p_export_group].shrink=p_amount;
 
 }
-int EditorImportExport::image_export_group_get_shrink(const StringName& p_export_group) const{
+float EditorImportExport::image_export_group_get_shrink(const StringName& p_export_group) const{
 
 	ERR_FAIL_COND_V(!image_groups.has(p_export_group),1);
 	return image_groups[p_export_group].shrink;
@@ -1503,6 +1661,17 @@ void EditorImportExport::image_export_get_images_in_group(const StringName& p_gr
 	}
 }
 
+void EditorImportExport::set_convert_text_scenes(bool p_convert) {
+
+	convert_text_scenes=p_convert;
+}
+
+bool EditorImportExport::get_convert_text_scenes() const{
+
+	return convert_text_scenes;
+}
+
+
 void EditorImportExport::load_config() {
 
 	Ref<ConfigFile> cf = memnew( ConfigFile );
@@ -1544,6 +1713,12 @@ void EditorImportExport::load_config() {
 			image_formats.insert(f[i].strip_edges());
 		}
 	}
+
+	if (cf->has_section("convert_scenes")) {
+
+		convert_text_scenes = cf->get_value("convert_scenes","convert_text_scenes");
+	}
+
 
 	if (cf->has_section("export_filter_files")) {
 
@@ -1608,6 +1783,8 @@ void EditorImportExport::load_config() {
 					g.action=IMAGE_ACTION_COMPRESS_RAM;
 				else if (action=="compress_disk")
 					g.action=IMAGE_ACTION_COMPRESS_DISK;
+				else if (action=="keep")
+					g.action=IMAGE_ACTION_KEEP;
 			}
 
 			if (d.has("atlas"))
@@ -1656,6 +1833,17 @@ void EditorImportExport::load_config() {
 			script_key = cf->get_value("script","encrypt_key");
 		}
 	}
+
+	if (cf->has_section("convert_samples")) {
+
+		if (cf->has_section_key("convert_samples","max_hz"))
+			sample_action_max_hz=cf->get_value("convert_samples","max_hz");
+
+		if (cf->has_section_key("convert_samples","trim"))
+			sample_action_trim=cf->get_value("convert_samples","trim");
+	}
+
+
 
 }
 
@@ -1735,6 +1923,7 @@ void EditorImportExport::save_config() {
 			case IMAGE_ACTION_NONE: d["action"]="default"; break;
 			case IMAGE_ACTION_COMPRESS_RAM: d["action"]="compress_ram"; break;
 			case IMAGE_ACTION_COMPRESS_DISK: d["action"]="compress_disk"; break;
+			case IMAGE_ACTION_KEEP: d["action"]="keep"; break;
 		}
 
 
@@ -1764,7 +1953,17 @@ void EditorImportExport::save_config() {
 		case SCRIPT_ACTION_ENCRYPT: cf->set_value("script","action","encrypt"); break;
 	}
 
+	cf->set_value("convert_scenes","convert_text_scenes",convert_text_scenes);
+
 	cf->set_value("script","encrypt_key",script_key);
+
+	switch(sample_action) {
+		case SAMPLE_ACTION_NONE: cf->set_value("convert_samples","action","none"); break;
+		case SAMPLE_ACTION_COMPRESS_RAM: cf->set_value("convert_samples","action","compress_ram"); break;
+	}
+
+	cf->set_value("convert_samples","max_hz",sample_action_max_hz);
+	cf->set_value("convert_samples","trim",sample_action_trim);
 
 	cf->save("res://export.cfg");
 
@@ -1788,6 +1987,35 @@ void EditorImportExport::script_set_encryption_key(const String& p_key){
 String EditorImportExport::script_get_encryption_key() const{
 
 	return script_key;
+}
+
+
+void EditorImportExport::sample_set_action(SampleAction p_action) {
+
+	sample_action=p_action;
+}
+
+EditorImportExport::SampleAction EditorImportExport::sample_get_action() const{
+
+	return sample_action;
+}
+
+void EditorImportExport::sample_set_max_hz(int p_hz){
+
+	sample_action_max_hz=p_hz;
+}
+int EditorImportExport::sample_get_max_hz() const{
+
+	return sample_action_max_hz;
+}
+
+void EditorImportExport::sample_set_trim(bool p_trim){
+
+	sample_action_trim=p_trim;
+}
+bool EditorImportExport::sample_get_trim() const{
+
+	return sample_action_trim;
 }
 
 
@@ -1818,7 +2046,14 @@ EditorImportExport::EditorImportExport() {
 	image_formats.insert("png");
 	image_shrink=1;
 
+
 	script_action=SCRIPT_ACTION_COMPILE;
+
+	sample_action=SAMPLE_ACTION_NONE;
+	sample_action_max_hz=44100;
+	sample_action_trim=false;
+
+	convert_text_scenes=true;
 
 }
 

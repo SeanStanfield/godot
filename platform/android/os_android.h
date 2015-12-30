@@ -39,6 +39,9 @@
 #include "servers/physics_2d/physics_2d_server_sw.h"
 #include "servers/physics_2d/physics_2d_server_wrap_mt.h"
 #include "servers/visual/rasterizer.h"
+#include "main/input_default.h"
+
+//#ifdef USE_JAVA_FILE_ACCESS
 
 
 #ifdef ANDROID_NATIVE_ACTIVITY
@@ -91,6 +94,8 @@ private:
 	bool use_gl2;
 	bool use_reload_hooks;
 	bool use_apk_expansion;
+
+	bool use_16bits_fbo;
 
 	Rasterizer *rasterizer;
 	VisualServer *visual_server;
@@ -197,6 +202,7 @@ public:
 	void set_display_size(Size2 p_size);
 
 	void reload_gfx();
+	void set_context_is_16_bits(bool p_is_16);
 
 	void set_need_reload_hooks(bool p_needs_them);
 	virtual void set_screen_orientation(ScreenOrientation p_orientation);

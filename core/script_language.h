@@ -82,6 +82,7 @@ public:
 	virtual StringName get_instance_base_type() const=0; // this may not work in all scripts, will return empty if so
 	virtual ScriptInstance* instance_create(Object *p_this)=0;
 	virtual bool instance_has(const Object *p_this) const=0;
+
 	
 	virtual bool has_source_code() const=0;
 	virtual String get_source_code() const=0;
@@ -109,6 +110,7 @@ public:
 	virtual bool set(const StringName& p_name, const Variant& p_value)=0;
 	virtual bool get(const StringName& p_name, Variant &r_ret) const=0;
 	virtual void get_property_list(List<PropertyInfo> *p_properties) const=0;
+	virtual Variant::Type get_property_type(const StringName& p_name,bool *r_is_valid=NULL) const=0;
 
 	virtual void get_method_list(List<MethodInfo> *p_list) const=0;
 	virtual bool has_method(const StringName& p_method) const=0;
@@ -163,6 +165,7 @@ public:
 	virtual String make_function(const String& p_class,const String& p_name,const StringArray& p_args) const=0;
 	virtual Error complete_code(const String& p_code, const String& p_base_path, Object*p_owner,List<String>* r_options,String& r_call_hint) { return ERR_UNAVAILABLE; }
 	virtual void auto_indent_code(String& p_code,int p_from_line,int p_to_line) const=0;
+	virtual void add_global_constant(const StringName& p_variable,const Variant& p_value)=0;
 
 	/* DEBUGGER FUNCTIONS */
 
@@ -208,6 +211,7 @@ public:
 	virtual bool set(const StringName& p_name, const Variant& p_value);
 	virtual bool get(const StringName& p_name, Variant &r_ret) const;
 	virtual void get_property_list(List<PropertyInfo> *p_properties) const;
+	virtual Variant::Type get_property_type(const StringName& p_name,bool *r_is_valid=NULL) const;
 
 	virtual void get_method_list(List<MethodInfo> *p_list) const {}
 	virtual bool has_method(const StringName& p_method) const { return false; }

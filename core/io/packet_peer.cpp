@@ -127,7 +127,7 @@ Error PacketPeer::_get_packet_error() const {
 void PacketPeer::_bind_methods() {
 
 	ObjectTypeDB::bind_method(_MD("get_var"),&PacketPeer::_bnd_get_var);
-	ObjectTypeDB::bind_method(_MD("put_var", "var:var"),&PacketPeer::put_var);
+	ObjectTypeDB::bind_method(_MD("put_var", "var:Variant"),&PacketPeer::put_var);
 	ObjectTypeDB::bind_method(_MD("get_packet"),&PacketPeer::_get_packet);
 	ObjectTypeDB::bind_method(_MD("put_packet:Error", "buffer"),&PacketPeer::_put_packet);
 	ObjectTypeDB::bind_method(_MD("get_packet_error:Error"),&PacketPeer::_get_packet_error);
@@ -156,7 +156,6 @@ Error PacketPeerStream::_poll_buffer() const {
 	Error err = peer->get_partial_data(&temp_buffer[0], ring_buffer.space_left(), read);
 	if (err)
 		return err;
-
 	if (read==0)
 		return OK;
 
@@ -202,7 +201,7 @@ Error PacketPeerStream::get_packet(const uint8_t **r_buffer,int &r_buffer_size) 
 	uint8_t lbuf[4];
 	ring_buffer.copy(lbuf,0,4);
 	remaining-=4;
-	uint32_t len = decode_uint32(lbuf);
+	uint32_t len = decode_uint32(lbuf);	
 	ERR_FAIL_COND_V(remaining<(int)len,ERR_UNAVAILABLE);
 
 	ring_buffer.read(lbuf,4); //get rid of first 4 bytes

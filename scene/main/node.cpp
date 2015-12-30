@@ -628,11 +628,11 @@ String Node::validate_child_name(const String& p_name) const {
 
 }
 
-void Node::_validate_child_name(Node *p_child) {
+void Node::_validate_child_name(Node *p_child, bool p_force_human_readable) {
 
 	/* Make sure the name is unique */
 
-	if (node_hrcr) {
+	if (node_hrcr || p_force_human_readable) {
 
 		//this approach to autoset node names is human readable but very slow
 		//it's turned on while running in the editor
@@ -700,11 +700,7 @@ void Node::_validate_child_name(Node *p_child) {
 		if (!unique) {
 
 			node_hrcr_count.ref();
-#ifdef DEBUG_ENABLED
-			String name = "@"+String(p_child->get_type_name())+itos(node_hrcr_count.get());
-#else
-			String name = "@"+itos(node_hrcr_count.get());
-#endif
+			String name = "@"+String(p_child->get_name())+"@"+itos(node_hrcr_count.get());
 			p_child->data.name=name;
 		}
 	}
@@ -732,23 +728,26 @@ void Node::_add_child_nocheck(Node* p_child,const StringName& p_name) {
 }
 
 
-void Node::add_child(Node *p_child) {
+void Node::add_child(Node *p_child, bool p_legible_unique_name) {
 
 	ERR_FAIL_NULL(p_child);
 	/* Fail if node has a parent */
-	ERR_EXPLAIN("Can't add child "+p_child->get_name()+" to itself.")
-	ERR_FAIL_COND( p_child==this ); // adding to itself!
+	if (p_child==this) {
+		ERR_EXPLAIN("Can't add child "+p_child->get_name()+" to itself.")
+		ERR_FAIL_COND( p_child==this ); // adding to itself!
+	}
 	ERR_EXPLAIN("Can't add child, already has a parent");
 	ERR_FAIL_COND( p_child->data.parent );
 	ERR_EXPLAIN("Can't add child while a notification is happening");
 	ERR_FAIL_COND( data.blocked > 0 );
 		
 	/* Validate name */
-	_validate_child_name(p_child);
+	_validate_child_name(p_child,p_legible_unique_name);
 
 	_add_child_nocheck(p_child,p_child->data.name);
 	
 }
+
 
 void Node::_propagate_validate_owner() {
 
@@ -803,6 +802,7 @@ void Node::remove_child(Node *p_child) {
 	}
 	
 	ERR_FAIL_COND( idx==-1 );
+	//ERR_FAIL_COND( p_child->data.blocked > 0 );
 
 	
 	//if (data.scene) { does not matter
@@ -841,9 +841,26 @@ Node *Node::get_child(int p_index) const {
 	return data.children[p_index];
 }
 
+
+Node *Node::_get_child_by_name(const StringName& p_name) const {
+
+	int cc=data.children.size();
+	Node* const* cd=data.children.ptr();
+
+	for(int i=0;i<cc;i++){
+		if (cd[i]->data.name==p_name)
+			return cd[i];
+	}
+
+	return NULL;
+}
+
 Node *Node::_get_node(const NodePath& p_path) const {
 
-	ERR_FAIL_COND_V( !data.inside_tree && p_path.is_absolute(), NULL );
+	if (!data.inside_tree && p_path.is_absolute()) {
+		ERR_EXPLAIN("Can't use get_node() with absolute paths from outside the active scene tree.");
+		ERR_FAIL_V(NULL);
+	}
 	
 	Node *current=NULL;	
 	Node *root=NULL;
@@ -906,8 +923,10 @@ Node *Node::_get_node(const NodePath& p_path) const {
 Node *Node::get_node(const NodePath& p_path) const {
 
 	Node *node = _get_node(p_path);
-	ERR_EXPLAIN("Node not found: "+p_path);
-	ERR_FAIL_COND_V(!node,NULL);
+	if (!node) {
+		ERR_EXPLAIN("Node not found: "+p_path);
+		ERR_FAIL_COND_V(!node,NULL);
+	}
 	return node;
 }
 
@@ -1036,6 +1055,7 @@ void Node::get_owned_by(Node *p_by,List<Node*> *p_owned) {
 
 void Node::_set_owner_nocheck(Node* p_owner) {
 
+	ERR_FAIL_COND(data.owner);
 	data.owner=p_owner;
 	data.owner->data.owned.push_back( this );
 	data.OW = data.owner->data.owned.back();
@@ -1332,7 +1352,29 @@ String Node::get_filename() const {
 	return data.filename;
 }
 
+void Node::set_editable_instance(Node* p_node,bool p_editable) {
 
+	ERR_FAIL_NULL(p_node);
+	ERR_FAIL_COND(!is_a_parent_of(p_node));
+	NodePath p = get_path_to(p_node);
+	if (!p_editable)
+		data.editable_instances.erase(p);
+	else
+		data.editable_instances[p]=true;
+
+}
+
+bool Node::is_editable_instance(Node *p_node) const {
+
+	if (!p_node)
+		return false; //easier, null is never editable :)
+	ERR_FAIL_COND_V(!is_a_parent_of(p_node),false);
+	NodePath p = get_path_to(p_node);
+	return data.editable_instances.has(p);
+}
+
+
+#if 0
 
 void Node::generate_instance_state() {
 
@@ -1383,13 +1425,36 @@ Dictionary Node::get_instance_state() const {
 	return data.instance_state;
 }
 
-Vector<StringName> Node::get_instance_groups() const {
+#endif
 
-	return data.instance_groups;
+void Node::set_scene_instance_state(const Ref<SceneState>& p_state) {
+
+	data.instance_state=p_state;
 }
-Vector<Node::Connection> Node::get_instance_connections() const{
 
-	return data.instance_connections;
+Ref<SceneState> Node::get_scene_instance_state() const{
+
+	return data.instance_state;
+}
+
+void Node::set_scene_inherited_state(const Ref<SceneState>& p_state) {
+
+	data.inherited_state=p_state;
+}
+
+Ref<SceneState> Node::get_scene_inherited_state() const{
+
+	return data.inherited_state;
+}
+
+void Node::set_scene_instance_load_placeholder(bool p_enable) {
+
+	data.use_placeholder=p_enable;
+}
+
+bool Node::get_scene_instance_load_placeholder() const{
+
+	return data.use_placeholder;
 }
 
 int Node::get_position_in_parent() const {
@@ -1922,7 +1987,7 @@ void Node::_bind_methods() {
 
 	ObjectTypeDB::bind_method(_MD("set_name","name"),&Node::set_name);
 	ObjectTypeDB::bind_method(_MD("get_name"),&Node::get_name);
-	ObjectTypeDB::bind_method(_MD("add_child","node:Node"),&Node::add_child);
+	ObjectTypeDB::bind_method(_MD("add_child","node:Node","legible_unique_name"),&Node::add_child,DEFVAL(false));
 	ObjectTypeDB::bind_method(_MD("remove_child","node:Node"),&Node::remove_child);
 	//ObjectTypeDB::bind_method(_MD("remove_and_delete_child","node:Node"),&Node::remove_and_delete_child);
 	ObjectTypeDB::bind_method(_MD("get_child_count"),&Node::get_child_count);
@@ -1931,7 +1996,7 @@ void Node::_bind_methods() {
 	ObjectTypeDB::bind_method(_MD("has_node","path"),&Node::has_node);
 	ObjectTypeDB::bind_method(_MD("get_node:Node","path"),&Node::get_node);
 	ObjectTypeDB::bind_method(_MD("get_parent:Parent"),&Node::get_parent);
-	ObjectTypeDB::bind_method(_MD("find_node:Node","mask","recursive","owned"),&Node::get_node,DEFVAL(true),DEFVAL(true));
+	ObjectTypeDB::bind_method(_MD("find_node:Node","mask","recursive","owned"),&Node::find_node,DEFVAL(true),DEFVAL(true));
 	ObjectTypeDB::bind_method(_MD("has_node_and_resource","path"),&Node::has_node_and_resource);
 	ObjectTypeDB::bind_method(_MD("get_node_and_resource","path"),&Node::_get_node_and_resource);
 
@@ -1940,7 +2005,7 @@ void Node::_bind_methods() {
 	ObjectTypeDB::bind_method(_MD("is_greater_than","node:Node"),&Node::is_greater_than);
 	ObjectTypeDB::bind_method(_MD("get_path"),&Node::get_path);
 	ObjectTypeDB::bind_method(_MD("get_path_to","node:Node"),&Node::get_path_to);
-	ObjectTypeDB::bind_method(_MD("add_to_group","group"),&Node::add_to_group,DEFVAL(false));
+	ObjectTypeDB::bind_method(_MD("add_to_group","group","persistent"),&Node::add_to_group,DEFVAL(false));
 	ObjectTypeDB::bind_method(_MD("remove_from_group","group"),&Node::remove_from_group);
 	ObjectTypeDB::bind_method(_MD("is_in_group","group"),&Node::is_in_group);
 	ObjectTypeDB::bind_method(_MD("move_child","child_node:Node","to_pos"),&Node::move_child);
@@ -1976,6 +2041,10 @@ void Node::_bind_methods() {
 
 	ObjectTypeDB::bind_method(_MD("duplicate:Node","use_instancing"),&Node::duplicate,DEFVAL(false));
 	ObjectTypeDB::bind_method(_MD("replace_by","node:Node","keep_data"),&Node::replace_by,DEFVAL(false));
+
+	ObjectTypeDB::bind_method(_MD("set_scene_instance_load_placeholder","load_placeholder"),&Node::set_scene_instance_load_placeholder);
+	ObjectTypeDB::bind_method(_MD("get_scene_instance_load_placeholder"),&Node::get_scene_instance_load_placeholder);
+
 
 	ObjectTypeDB::bind_method(_MD("get_viewport"),&Node::get_viewport);
 
@@ -2049,6 +2118,7 @@ Node::Node() {
 	data.parent_owned=false;
 	data.in_constructor=true;
 	data.viewport=NULL;
+	data.use_placeholder=false;
 }
 
 Node::~Node() {
@@ -2065,3 +2135,4 @@ Node::~Node() {
 }
 
 
+////////////////////////////////

@@ -54,6 +54,7 @@ public:
 			TYPE_CONTROL_FLOW,
 			TYPE_LOCAL_VAR,
 			TYPE_ASSERT,
+			TYPE_BREAKPOINT,
 			TYPE_NEWLINE,
 		};
 
@@ -105,6 +106,7 @@ public:
 		Vector<FunctionNode*> static_functions;
 		Vector<Signal> _signals;
 		BlockNode *initializer;
+		BlockNode *ready;
 		ClassNode *owner;
 		//Vector<Node*> initializers;
 		int end_line;
@@ -275,8 +277,11 @@ public:
 		AssertNode() { type=TYPE_ASSERT; }
 	};
 
+	struct BreakpointNode : public Node {
+		BreakpointNode() { type=TYPE_BREAKPOINT; }
+	};
+
 	struct NewLineNode : public Node {
-		int line;
 		NewLineNode() { type=TYPE_NEWLINE; }
 	};
 
@@ -419,10 +424,12 @@ private:
 	BlockNode *completion_block;
 	int completion_line;
 	int completion_argument;
+	bool completion_found;
 
 	PropertyInfo current_export;
 
 	void _set_error(const String& p_error, int p_line=-1, int p_column=-1);
+	bool _recover_from_completion();
 
 
 	bool _parse_arguments(Node* p_parent, Vector<Node*>& p_args, bool p_static, bool p_can_codecomplete=false);

@@ -42,6 +42,8 @@ class Joint2D : public Node2D {
 	NodePath b;
 	real_t bias;
 
+	bool exclude_from_collision;
+
 
 protected:
 
@@ -62,6 +64,9 @@ public:
 	void set_bias(real_t p_bias);
 	real_t get_bias() const;
 
+	void set_exclude_nodes_from_collision(bool p_enable);
+	bool get_exclude_nodes_from_collision() const;
+
 	RID get_joint() const { return joint; }
 	Joint2D();
 
@@ -72,13 +77,17 @@ class PinJoint2D : public Joint2D {
 
 	OBJ_TYPE(PinJoint2D,Joint2D);
 
+	real_t softness;
+
 protected:
 
 	void _notification(int p_what);
 	virtual RID _configure_joint();
+	static void _bind_methods();
 public:
 
-
+	void set_softness(real_t p_stiffness);
+	real_t get_softness() const;
 
 	PinJoint2D();
 };

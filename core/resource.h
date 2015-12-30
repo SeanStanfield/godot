@@ -130,7 +130,7 @@ public:
 	void set_name(const String& p_name);
 	String get_name() const;
 
-	void set_path(const String& p_path,bool p_take_over=false);
+	virtual void set_path(const String& p_path,bool p_take_over=false);
 	String get_path() const;
 
 	void set_subindex(int p_sub_index);
@@ -144,7 +144,7 @@ public:
 
 #ifdef TOOLS_ENABLED
 
-	void set_last_modified_time(uint64_t p_time) { last_modified_time=p_time; }
+	virtual void set_last_modified_time(uint64_t p_time) { last_modified_time=p_time; }
 	uint64_t get_last_modified_time() const { return last_modified_time; }
 
 #endif

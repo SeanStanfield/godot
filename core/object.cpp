@@ -314,6 +314,7 @@ void Object::set(const StringName& p_name, const Variant& p_value, bool *r_valid
 
 	_edited=true;
 #endif
+
 	if (script_instance) {
 
 		if (script_instance->set(p_name,p_value)) {
@@ -326,9 +327,9 @@ void Object::set(const StringName& p_name, const Variant& p_value, bool *r_valid
 
 	//try built-in setgetter
 	{
-		if (ObjectTypeDB::set_property(this,p_name,p_value)) {
-			if (r_valid)
-				*r_valid=true;
+		if (ObjectTypeDB::set_property(this,p_name,p_value,r_valid)) {
+			//if (r_valid)
+			//	*r_valid=true;
 			return;
 		}
 	}
@@ -970,7 +971,10 @@ void Object::set_script_instance(ScriptInstance *p_instance) {
 
 	script_instance=p_instance;
 
-	script=p_instance->get_script().get_ref_ptr();
+	if (p_instance)
+		script=p_instance->get_script().get_ref_ptr();
+	else
+		script=RefPtr();
 }
 
 RefPtr Object::get_script() const {
@@ -1401,6 +1405,10 @@ bool Object::is_connected(const StringName& p_signal, Object *p_to_object, const
 		bool signal_is_valid = ObjectTypeDB::has_signal(get_type_name(),p_signal);
 		if (signal_is_valid)
 			return false;
+
+		if (!script.is_null() && Ref<Script>(script)->has_script_signal(p_signal))
+			return false;
+
 		ERR_EXPLAIN("Nonexistent signal: "+p_signal);
 		ERR_FAIL_COND_V(!s,false);
 	}
@@ -1542,7 +1550,7 @@ void Object::_bind_methods() {
 	ObjectTypeDB::bind_method(_MD("get","property"),&Object::_get_bind);
 	ObjectTypeDB::bind_method(_MD("get_property_list"),&Object::_get_property_list_bind);
 	ObjectTypeDB::bind_method(_MD("get_method_list"),&Object::_get_method_list_bind);
-	ObjectTypeDB::bind_method(_MD("notification","what"),&Object::notification,DEFVAL(false));
+	ObjectTypeDB::bind_method(_MD("notification","what","reversed"),&Object::notification,DEFVAL(false));
 	ObjectTypeDB::bind_method(_MD("get_instance_ID"),&Object::get_instance_ID);
 
 	ObjectTypeDB::bind_method(_MD("set_script","script:Script"),&Object::set_script);
@@ -1605,9 +1613,9 @@ void Object::_bind_methods() {
 		ObjectTypeDB::bind_native_method(METHOD_FLAGS_DEFAULT,"call_deferred",&Object::_call_deferred_bind,mi,defargs);
 	}
 
-	ObjectTypeDB::bind_method(_MD("callv:var","method","arg_array"),&Object::callv);
+	ObjectTypeDB::bind_method(_MD("callv:Variant","method","arg_array"),&Object::callv);
 
-	ObjectTypeDB::bind_method(_MD("has_method"),&Object::has_method);
+	ObjectTypeDB::bind_method(_MD("has_method","method"),&Object::has_method);
 
 	ObjectTypeDB::bind_method(_MD("get_signal_list"),&Object::_get_signal_list);
 
@@ -1688,6 +1696,26 @@ void Object::get_translatable_strings(List<String> *p_strings) const {
 
 		p_strings->push_back(text);
 	}
+
+}
+
+Variant::Type Object::get_static_property_type(const StringName& p_property, bool *r_valid) const {
+
+	bool valid;
+	Variant::Type t = ObjectTypeDB::get_property_type(get_type_name(),p_property,&valid);
+	if (valid) {
+		if (r_valid)
+			*r_valid=true;
+		return t;
+	}
+
+	if (get_script_instance()) {
+		return get_script_instance()->get_property_type(p_property,r_valid);
+	}
+	if (r_valid)
+		*r_valid=false;
+
+	return Variant::NIL;
 
 }
 

@@ -129,6 +129,10 @@ private:
 
 	Vector3 linear_velocity;
 	Vector3  angular_velocity;
+	real_t gravity_scale;
+	real_t linear_damp;
+	real_t angular_damp;
+
 	bool sleeping;
 	bool ccd;
 
@@ -217,6 +221,16 @@ public:
 	void set_angular_velocity(const Vector3&p_velocity);
 	Vector3  get_angular_velocity() const;
 
+	void set_gravity_scale(real_t p_gravity_scale);
+	real_t get_gravity_scale() const;
+
+	void set_linear_damp(real_t p_linear_damp);
+	real_t get_linear_damp() const;
+
+	void set_angular_damp(real_t p_angular_damp);
+	real_t get_angular_damp() const;
+
+
 	void set_use_custom_integrator(bool p_enable);
 	bool is_using_custom_integrator();
 
@@ -290,7 +304,7 @@ public:
 	Vector3 move(const Vector3& p_motion);
 	Vector3 move_to(const Vector3& p_position);
 
-	bool can_move_to(const Vector3& p_position,bool p_discrete=false);
+	bool can_teleport_to(const Vector3& p_position);
 	bool is_colliding() const;
 	Vector3 get_collision_pos() const;
 	Vector3 get_collision_normal() const;

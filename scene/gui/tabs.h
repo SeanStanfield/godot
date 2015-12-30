@@ -42,6 +42,14 @@ public:
 		ALIGN_CENTER,
 		ALIGN_RIGHT
 	};
+
+	enum CloseButtonDisplayPolicy {
+
+		SHOW_ALWAYS,
+		SHOW_ACTIVE_ONLY,
+		SHOW_HOVER,
+		SHOW_NEVER
+	};
 private:
 
 
@@ -53,8 +61,16 @@ private:
 		int size_cache;
 		Ref<Texture> right_button;
 		Rect2 rb_rect;
+		Ref<Texture> close_button;
+		Rect2 cb_rect;
 	};
 
+
+	int offset;
+	int max_drawn_tab;
+	int hilite_arrow;
+	bool buttons_visible;
+	bool missing_right;
 	Vector<Tab> tabs;
 	int current;
 	Control *_get_tab(int idx) const;
@@ -62,6 +78,12 @@ private:
 	TabAlign tab_align;
 	int rb_hover;
 	bool rb_pressing;
+
+	int cb_hover;
+	bool cb_pressing;
+	CloseButtonDisplayPolicy cb_displaypolicy;
+
+	int hover;	// hovered tab
 
 protected:
 
@@ -81,6 +103,10 @@ public:
 
 	void set_tab_right_button(int p_tab,const Ref<Texture>& p_right_button);
 	Ref<Texture> get_tab_right_button(int p_tab) const;
+
+	void set_tab_close_button(int p_tab, const Ref<Texture>& p_close_button);
+	Ref<Texture> get_tab_close_button(int p_tab) const;
+	void set_tab_close_display_policy(CloseButtonDisplayPolicy p_cb_displaypolicy);
 
 	void set_tab_align(TabAlign p_align);
 	TabAlign get_tab_align() const;

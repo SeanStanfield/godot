@@ -447,7 +447,7 @@ void EditorSettings::_load_defaults() {
 	hints["global/default_project_path"]=PropertyInfo(Variant::STRING,"global/default_project_path",PROPERTY_HINT_GLOBAL_DIR);
 	set("global/default_project_export_path","");
 	hints["global/default_project_export_path"]=PropertyInfo(Variant::STRING,"global/default_project_export_path",PROPERTY_HINT_GLOBAL_DIR);
-
+	set("global/show_script_in_scene_tabs",false);
 	set("text_editor/background_color",Color::html("3b000000"));
 	set("text_editor/text_color",Color::html("aaaaaa"));
 	set("text_editor/text_selected_color",Color::html("000000"));
@@ -474,6 +474,7 @@ void EditorSettings::_load_defaults() {
 	set("scenetree_editor/duplicate_node_name_num_separator",0);
 	hints["scenetree_editor/duplicate_node_name_num_separator"]=PropertyInfo(Variant::INT,"scenetree_editor/duplicate_node_name_num_separator",PROPERTY_HINT_ENUM, "None,Space,Underscore,Dash");
 
+	set("gridmap_editor/pick_distance", 5000.0);
 
 	set("3d_editor/default_fov",45.0);
 	set("3d_editor/default_z_near",0.1);
@@ -496,6 +497,15 @@ void EditorSettings::_load_defaults() {
 	set("2d_editor/bone_selected_color",Color(0.9,0.45,0.45,0.9));
 	set("2d_editor/bone_ik_color",Color(0.9,0.9,0.45,0.9));
 
+	set("game_window_placement/rect",0);
+	hints["game_window_placement/rect"]=PropertyInfo(Variant::INT,"game_window_placement/rect",PROPERTY_HINT_ENUM,"Default,Centered,Custom Position,Force Maximized,Force Full Screen");
+	String screen_hints="Default (Same as Editor)";
+	for(int i=0;i<OS::get_singleton()->get_screen_count();i++) {
+		screen_hints+=",Monitor "+itos(i+1);
+	}
+	set("game_window_placement/rect_custom_position",Vector2());
+	set("game_window_placement/screen",0);
+	hints["game_window_placement/screen"]=PropertyInfo(Variant::INT,"game_window_placement/screen",PROPERTY_HINT_ENUM,screen_hints);
 
 	set("on_save/compress_binary_resources",true);
 	set("on_save/save_modified_external_resources",true);
@@ -505,6 +515,8 @@ void EditorSettings::_load_defaults() {
 	set("text_editor/create_signal_callbacks",true);
 
 	set("file_dialog/show_hidden_files", false);
+	set("file_dialog/display_mode", 0);
+	hints["file_dialog/display_mode"]=PropertyInfo(Variant::INT,"file_dialog/display_mode",PROPERTY_HINT_ENUM,"Thumbnails,List");
 	set("file_dialog/thumbnail_size", 64);
 	hints["file_dialog/thumbnail_size"]=PropertyInfo(Variant::INT,"file_dialog/thumbnail_size",PROPERTY_HINT_RANGE,"32,128,16");
 

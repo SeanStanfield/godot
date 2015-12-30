@@ -1077,6 +1077,14 @@ Variant GDFunction::call(GDInstance *p_instance, const Variant **p_args, int p_a
 
 				ip+=2;
 			} continue;
+			case OPCODE_BREAKPOINT: {
+#ifdef DEBUG_ENABLED
+				if (ScriptDebugger::get_singleton()) {
+					GDScriptLanguage::get_singleton()->debug_break("Breakpoint Statement",true);
+				}
+#endif
+				ip+=1;
+			} continue;
 			case OPCODE_LINE: {
 				CHECK_SPACE(2);
 
@@ -1370,7 +1378,7 @@ Variant GDFunctionState::resume(const Variant& p_arg) {
 
 void GDFunctionState::_bind_methods() {
 
-	ObjectTypeDB::bind_method(_MD("resume:var","arg"),&GDFunctionState::resume,DEFVAL(Variant()));
+	ObjectTypeDB::bind_method(_MD("resume:Variant","arg"),&GDFunctionState::resume,DEFVAL(Variant()));
 	ObjectTypeDB::bind_method(_MD("is_valid"),&GDFunctionState::is_valid);
 	ObjectTypeDB::bind_native_method(METHOD_FLAGS_DEFAULT,"_signal_callback",&GDFunctionState::_signal_callback,MethodInfo("_signal_callback"));
 
@@ -1449,7 +1457,7 @@ Object *GDNativeClass::instance() {
 
 
 
-GDInstance* GDScript::_create_instance(const Variant** p_args,int p_argcount,Object *p_owner,bool p_isref) {
+GDInstance* GDScript::_create_instance(const Variant** p_args,int p_argcount,Object *p_owner,bool p_isref,Variant::CallError& r_error) {
 
 
 	/* STEP 1, CREATE */
@@ -1465,14 +1473,13 @@ GDInstance* GDScript::_create_instance(const Variant** p_args,int p_argcount,Obj
 
 	instances.insert(instance->owner);
 
-	Variant::CallError err;
-	initializer->call(instance,p_args,p_argcount,err);
+	initializer->call(instance,p_args,p_argcount,r_error);
 
-	if (err.error!=Variant::CallError::CALL_OK) {
+	if (r_error.error!=Variant::CallError::CALL_OK) {
 		instance->script=Ref<GDScript>();
 		instance->owner->set_script_instance(NULL);
 		instances.erase(p_owner);
-		ERR_FAIL_COND_V(err.error!=Variant::CallError::CALL_OK, NULL); //error consrtucting
+		ERR_FAIL_COND_V(r_error.error!=Variant::CallError::CALL_OK, NULL); //error constructing
 	}
 
 	//@TODO make thread safe
@@ -1505,7 +1512,7 @@ Variant GDScript::_new(const Variant** p_args,int p_argcount,Variant::CallError&
 	}
 
 
-	GDInstance* instance = _create_instance(p_args,p_argcount,owner,r!=NULL);
+	GDInstance* instance = _create_instance(p_args,p_argcount,owner,r!=NULL,r_error);
 	if (!instance) {
 		if (ref.is_null()) {
 			memdelete(owner); //no owner, sorry
@@ -1637,7 +1644,8 @@ ScriptInstance* GDScript::instance_create(Object *p_this) {
 		}
 	}
 
-	return _create_instance(NULL,0,p_this,p_this->cast_to<Reference>());
+	Variant::CallError unchecked_error;
+	return _create_instance(NULL,0,p_this,p_this->cast_to<Reference>(),unchecked_error);
 
 }
 bool GDScript::instance_has(const Object *p_this) const {
@@ -2274,6 +2282,26 @@ bool GDInstance::get(const StringName& p_name, Variant &r_ret) const {
 	return false;
 
 }
+
+Variant::Type GDInstance::get_property_type(const StringName& p_name,bool *r_is_valid) const {
+
+
+	const GDScript *sptr=script.ptr();
+	while(sptr) {
+
+		if (sptr->member_info.has(p_name)) {
+			if (r_is_valid)
+				*r_is_valid=true;
+			return sptr->member_info[p_name].type;
+		}
+		sptr = sptr->_base;
+	}
+
+	if (r_is_valid)
+		*r_is_valid=false;
+	return Variant::NIL;
+}
+
 void GDInstance::get_property_list(List<PropertyInfo> *p_properties) const {
 	// exported members, not doen yet!
 
@@ -2550,6 +2578,12 @@ void GDScriptLanguage::_add_global(const StringName& p_name,const Variant& p_val
 	_global_array=global_array.ptr();
 }
 
+void GDScriptLanguage::add_global_constant(const StringName& p_variable,const Variant& p_value) {
+
+	_add_global(p_variable,p_value);
+}
+
+
 void GDScriptLanguage::init() {
 
 
@@ -2626,6 +2660,7 @@ void GDScriptLanguage::get_reserved_words(List<String> *p_words) const  {
 		"elif",
 		"enum",
 		"extends"	,
+		"onready",
 		"for"	,
 		"func"	,
 		"if"	,
@@ -2645,6 +2680,7 @@ void GDScriptLanguage::get_reserved_words(List<String> *p_words) const  {
 		"or",
 		"export",
 		"assert",
+		"breakpoint",
 		"yield",
 		"static",
 		"float",

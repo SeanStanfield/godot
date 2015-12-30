@@ -326,10 +326,11 @@ void OSWinrt::finalize() {
 	//if (debugger_connection_console) {
 //		memdelete(debugger_connection_console);
 //}
+	
+	memdelete(sample_manager);
 
 	audio_server->finish();
 	memdelete(audio_server);
-	memdelete(sample_manager);
 
 	memdelete(input);
 
@@ -422,17 +423,27 @@ void OSWinrt::get_fullscreen_mode_list(List<VideoMode> *p_list,int p_screen) con
 	
 }
 
-void OSWinrt::print_error(const char* p_function,const char* p_file,int p_line,const char *p_code,const char*p_rationale,ErrorType p_type) {
+void OSWinrt::print_error(const char* p_function, const char* p_file, int p_line, const char* p_code, const char* p_rationale, ErrorType p_type) {
 
-	if (p_rationale && p_rationale[0]) {
+	const char* err_details;
+	if (p_rationale && p_rationale[0])
+		err_details = p_rationale;
+	else
+		err_details = p_code;
 
-		print("\E[1;31;40mERROR: %s: \E[1;37;40m%s\n",p_function,p_rationale);
-		print("\E[0;31;40m   At: %s:%i.\E[0;0;37m\n",p_file,p_line);
-
-	} else {
-		print("\E[1;31;40mERROR: %s: \E[1;37;40m%s\n",p_function,p_code);
-		print("\E[0;31;40m   At: %s:%i.\E[0;0;37m\n",p_file,p_line);
-
+	switch(p_type) {
+		case ERR_ERROR:
+			print("ERROR: %s: %s\n", p_function, err_details);
+			print("   At: %s:%i\n", p_file, p_line);
+			break;
+		case ERR_WARNING:
+			print("WARNING: %s: %s\n", p_function, err_details);
+			print("     At: %s:%i\n", p_file, p_line);
+			break;
+		case ERR_SCRIPT:
+			print("SCRIPT ERROR: %s: %s\n", p_function, err_details);
+			print("          At: %s:%i\n", p_file, p_line);
+			break;
 	}
 }
 
