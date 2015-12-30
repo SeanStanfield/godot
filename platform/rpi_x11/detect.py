@@ -1,6 +1,7 @@
 
 import os
 import sys	
+import platform
 
 
 def is_active():
@@ -44,7 +45,7 @@ def can_build():
 		print("xinerama not found.. x11 disabled.")
 		return False
 
-	
+
 	return True # X11 enabled
   
 def get_opts():
@@ -118,6 +119,8 @@ def configure(env):
 	elif (env["target"]=="release_debug"):
 
 		env.Append(CCFLAGS=['-O2','-ffast-math','-DDEBUG_ENABLED'])
+		if (env["debug_release"]=="yes"):
+			env.Append(CCFLAGS=['-g2'])
 
 	elif (env["target"]=="debug"):
 
@@ -131,11 +134,34 @@ def configure(env):
 		env.ParseConfig('pkg-config openssl --cflags --libs')
 
 
-	env.ParseConfig('pkg-config freetype2 --cflags --libs')
-	env.Append(CCFLAGS=['-DFREETYPE_ENABLED'])
+	if (env["freetype"]=="yes"):
+		env.ParseConfig('pkg-config freetype2 --cflags --libs')
+
+
+	if (env["freetype"]!="no"):
+		env.Append(CCFLAGS=['-DFREETYPE_ENABLED'])
+		if (env["freetype"]=="builtin"):
+			env.Append(CPPPATH=['#tools/freetype'])
+			env.Append(CPPPATH=['#tools/freetype/freetype/include'])
+
+
 
 	
-	env.Append(CPPFLAGS=["-DALSA_ENABLED"])
+
+	if platform.system() == 'Linux':
+		env.Append(CPPFLAGS=["-DALSA_ENABLED"])
+		env.Append(LIBS=['asound'])
+
+		if not os.system("pkg-config --exists libudev"):
+			if not os.system("pkg-config --exists libevdev"):
+				print("Enabling udev/evdev")
+				env.Append(CPPFLAGS=["-DJOYDEV_ENABLED"])
+				env.ParseConfig('pkg-config libudev --cflags --libs')
+				env.ParseConfig('pkg-config libevdev --cflags --libs')
+			else:
+				print("libevdev development libraries not found, disabling gamepad support")
+		else:
+			print("libudev development libraries not found, disabling gamepad support")
 
 	if (env["pulseaudio"]=="yes"):
 		if not os.system("pkg-config --exists libpulse-simple"):
