@@ -5,7 +5,7 @@
 /*                           GODOT ENGINE                                */
 /*                    http://www.godotengine.org                         */
 /*************************************************************************/
-/* Copyright (c) 2007-2015 Juan Linietsky, Ariel Manzur.                 */
+/* Copyright (c) 2007-2016 Juan Linietsky, Ariel Manzur.                 */
 /*                                                                       */
 /* Permission is hereby granted, free of charge, to any person obtaining */
 /* a copy of this software and associated documentation files (the       */
@@ -321,7 +321,7 @@ size_t MemoryPoolStaticMalloc::get_max_usage() {
 /* Most likely available only if memory debugger was compiled in */
 int MemoryPoolStaticMalloc::get_alloc_count() {
 	
-	return 0;
+	return total_pointers;
 }
 void * MemoryPoolStaticMalloc::get_alloc_ptr(int p_alloc_idx) {
 	

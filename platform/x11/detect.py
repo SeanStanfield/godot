@@ -1,6 +1,7 @@
 
 import os
 import sys	
+import platform
 
 
 def is_active():
@@ -44,16 +45,18 @@ def can_build():
 		print("xinerama not found.. x11 disabled.")
 		return False
 
-	
+
 	return True # X11 enabled
   
 def get_opts():
 
 	return [
 	('use_llvm','Use llvm compiler','no'),
+	('use_static_cpp','link stdc++ statically','no'),
 	('use_sanitizer','Use llvm compiler sanitize address','no'),
 	('use_leak_sanitizer','Use llvm compiler sanitize memory leaks','no'),
 	('pulseaudio','Detect & Use pulseaudio','yes'),
+	('gamepad','Gamepad support, requires libudev and libevdev','yes'),
 	('new_wm_api', 'Use experimental window management API','no'),
 	('debug_release', 'Add debug symbols to release version','no'),
 	]
@@ -63,7 +66,7 @@ def get_flags():
 	return [
 	('builtin_zlib', 'no'),
 	("openssl", "yes"),
-	("theora","no"),
+	#("theora","no"),
         ]
 			
 
@@ -111,13 +114,15 @@ def configure(env):
 	if (env["target"]=="release"):
 
 		if (env["debug_release"]=="yes"):
-			env.Append(CCFLAGS=['-g2','-fomit-frame-pointer'])
+			env.Append(CCFLAGS=['-g2'])
 		else:
-			env.Append(CCFLAGS=['-O2','-ffast-math','-fomit-frame-pointer'])
+			env.Append(CCFLAGS=['-O3','-ffast-math'])
 
 	elif (env["target"]=="release_debug"):
 
 		env.Append(CCFLAGS=['-O2','-ffast-math','-DDEBUG_ENABLED'])
+		if (env["debug_release"]=="yes"):
+			env.Append(CCFLAGS=['-g2'])
 
 	elif (env["target"]=="debug"):
 
@@ -126,16 +131,44 @@ def configure(env):
 	env.ParseConfig('pkg-config x11 --cflags --libs')
 	env.ParseConfig('pkg-config xinerama --cflags --libs')
 	env.ParseConfig('pkg-config xcursor --cflags --libs')
-	env.ParseConfig('pkg-config openssl --cflags --libs')
+
+	if (env["openssl"]=="yes"):
+		env.ParseConfig('pkg-config openssl --cflags --libs')
 
 
-	env.ParseConfig('pkg-config freetype2 --cflags --libs')
-	env.Append(CCFLAGS=['-DFREETYPE_ENABLED'])
+	if (env["freetype"]=="yes"):
+		env.ParseConfig('pkg-config freetype2 --cflags --libs')
 
-	
-	#env.Append(CPPFLAGS=['-DOPENGL_ENABLED','-DGLEW_ENABLED'])
-	env.Append(CPPFLAGS=["-DALSA_ENABLED"])
-	
+
+	if (env["freetype"]!="no"):
+		env.Append(CCFLAGS=['-DFREETYPE_ENABLED'])
+		if (env["freetype"]=="builtin"):
+			env.Append(CPPPATH=['#tools/freetype'])
+			env.Append(CPPPATH=['#tools/freetype/freetype/include'])
+
+
+	if os.system("pkg-config --exists alsa")==0:
+		print("Enabling ALSA")
+		env.Append(CPPFLAGS=["-DALSA_ENABLED"])
+		env.Append(LIBS=['asound'])
+	else:
+		print("ALSA libraries not found, disabling driver")
+
+	if (env["gamepad"]=="yes" and platform.system() == "Linux"):
+		# pkg-config returns 0 when the lib exists...
+		found_udev = not os.system("pkg-config --exists libudev")
+		
+		if (found_udev):
+			print("Enabling gamepad support with udev")
+			env.Append(CPPFLAGS=["-DJOYDEV_ENABLED"])
+			env.ParseConfig('pkg-config libudev --cflags --libs')
+		else:
+			print("libudev development libraries not found")
+
+			print("Some libraries are missing for the required gamepad support, aborting!")
+			print("Install the mentioned libraries or build with 'gamepad=no' to disable gamepad support.")
+			sys.exit(255)
+
 	if (env["pulseaudio"]=="yes"):
 		if not os.system("pkg-config --exists libpulse-simple"):
 			print("Enabling PulseAudio")
@@ -146,7 +179,6 @@ def configure(env):
 
 	env.Append(CPPFLAGS=['-DX11_ENABLED','-DUNIX_ENABLED','-DGLES2_ENABLED','-DGLES1_ENABLED'])
 	env.Append(LIBS=['c','m','stdc++','GLESv2', 'EGL', 'GLES_CM', 'pthread','asound','z','Xau','Xdmcp','Xrender','IMGegl','srv_um','Xfixes','Xext']) #TODO detect linux/BSD!
-
 	#env.Append(CPPFLAGS=['-DMPC_FIXED_POINT'])
 
 #host compiler is default..
@@ -169,4 +201,9 @@ def configure(env):
 	if(env["new_wm_api"]=="yes"):
 		env.Append(CPPFLAGS=['-DNEW_WM_API'])
 		env.ParseConfig('pkg-config xinerama --cflags --libs')
+
+	if (env["use_static_cpp"]=="yes"):
+		env.Append(LINKFLAGS=['-static-libstdc++'])
+
+	env["x86_opt_gcc"]=True
 

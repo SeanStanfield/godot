@@ -62,8 +62,8 @@ void _ResourceLoader::_bind_methods() {
 	ObjectTypeDB::bind_method(_MD("load:Resource","path","type_hint", "p_no_cache"),&_ResourceLoader::load,DEFVAL(""), DEFVAL(false));
 	ObjectTypeDB::bind_method(_MD("get_recognized_extensions_for_type","type"),&_ResourceLoader::get_recognized_extensions_for_type);
 	ObjectTypeDB::bind_method(_MD("set_abort_on_missing_resources","abort"),&_ResourceLoader::set_abort_on_missing_resources);
-	ObjectTypeDB::bind_method(_MD("get_dependencies"),&_ResourceLoader::get_dependencies);
-	ObjectTypeDB::bind_method(_MD("has"),&_ResourceLoader::has);
+	ObjectTypeDB::bind_method(_MD("get_dependencies","path"),&_ResourceLoader::get_dependencies);
+	ObjectTypeDB::bind_method(_MD("has","path"),&_ResourceLoader::has);
 }
 
 _ResourceLoader::_ResourceLoader() {
@@ -96,7 +96,7 @@ _ResourceSaver *_ResourceSaver::singleton=NULL;
 
 void _ResourceSaver::_bind_methods() {
 
-	ObjectTypeDB::bind_method(_MD("save","path","resource:Resource"),&_ResourceSaver::save, DEFVAL(0));
+	ObjectTypeDB::bind_method(_MD("save","path","resource:Resource","flags"),&_ResourceSaver::save,DEFVAL(0));
 	ObjectTypeDB::bind_method(_MD("get_recognized_extensions","type"),&_ResourceSaver::get_recognized_extensions);
 
 	BIND_CONSTANT(FLAG_RELATIVE_PATHS);
@@ -390,6 +390,12 @@ bool _OS::is_ok_left_and_cancel_right() const {
 	return OS::get_singleton()->get_swap_ok_cancel();
 }
 
+Error _OS::set_thread_name(const String& p_name) {
+
+	return Thread::set_name(p_name);
+};
+
+
 /*
 enum Weekday {
 	DAY_SUNDAY,
@@ -457,9 +463,9 @@ void _OS::set_icon(const Image& p_icon) {
 	OS::get_singleton()->set_icon(p_icon);
 }
 
-Dictionary _OS::get_date() const {
+Dictionary _OS::get_date(bool utc) const {
 
-	OS::Date date = OS::get_singleton()->get_date();
+	OS::Date date = OS::get_singleton()->get_date(utc);
 	Dictionary dated;
 	dated["year"]=date.year;
 	dated["month"]=date.month;
@@ -470,9 +476,9 @@ Dictionary _OS::get_date() const {
 
 
 }
-Dictionary _OS::get_time() const {
+Dictionary _OS::get_time(bool utc) const {
 
-	OS::Time time = OS::get_singleton()->get_time();
+	OS::Time time = OS::get_singleton()->get_time(utc);
 	Dictionary timed;
 	timed["hour"]=time.hour;
 	timed["minute"]=time.min;
@@ -480,10 +486,23 @@ Dictionary _OS::get_time() const {
 	return timed;
 
 }
+
+Dictionary _OS::get_time_zone_info() const {
+	OS::TimeZoneInfo info = OS::get_singleton()->get_time_zone_info();
+	Dictionary infod;
+	infod["bias"] = info.bias;
+	infod["name"] = info.name;
+	return infod;
+}
+
 uint64_t _OS::get_unix_time() const {
 
 	return OS::get_singleton()->get_unix_time();
 };
+
+uint64_t _OS::get_system_time_secs() const {
+	return OS::get_singleton()->get_system_time_secs();
+}
 
 void _OS::delay_usec(uint32_t p_usec) const {
 
@@ -685,6 +704,26 @@ bool _OS::is_debug_build() const {
 
 }
 
+void _OS::set_screen_orientation(ScreenOrientation p_orientation) {
+
+	OS::get_singleton()->set_screen_orientation(OS::ScreenOrientation(p_orientation));
+}
+
+_OS::ScreenOrientation _OS::get_screen_orientation() const {
+
+	return ScreenOrientation(OS::get_singleton()->get_screen_orientation());
+}
+
+void _OS::set_keep_screen_on(bool p_enabled) {
+
+	OS::get_singleton()->set_keep_screen_on(p_enabled);
+}
+
+bool _OS::is_keep_screen_on() const {
+
+	return OS::get_singleton()->is_keep_screen_on();
+}
+
 String _OS::get_system_dir(SystemDir p_dir) const {
 
 	return OS::get_singleton()->get_system_dir(OS::SystemDir(p_dir));
@@ -706,6 +745,11 @@ bool _OS::is_scancode_unicode(uint32_t p_unicode) const {
 int _OS::find_scancode_from_string(const String& p_code) const {
 
 	return find_keycode(p_code);
+}
+
+void _OS::alert(const String& p_alert,const String& p_title) {
+
+	OS::get_singleton()->alert(p_alert,p_title);
 }
 
 _OS *_OS::singleton=NULL;
@@ -743,6 +787,11 @@ void _OS::_bind_methods() {
 	ObjectTypeDB::bind_method(_MD("set_window_maximized", "enabled"),&_OS::set_window_maximized);
 	ObjectTypeDB::bind_method(_MD("is_window_maximized"),&_OS::is_window_maximized);
 
+	ObjectTypeDB::bind_method(_MD("set_screen_orientation","orientation"),&_OS::set_screen_orientation);
+	ObjectTypeDB::bind_method(_MD("get_screen_orientation"),&_OS::get_screen_orientation);
+
+	ObjectTypeDB::bind_method(_MD("set_keep_screen_on","enabled"),&_OS::set_keep_screen_on);
+	ObjectTypeDB::bind_method(_MD("is_keep_screen_on"),&_OS::is_keep_screen_on);
 
 	ObjectTypeDB::bind_method(_MD("set_iterations_per_second","iterations_per_second"),&_OS::set_iterations_per_second);
 	ObjectTypeDB::bind_method(_MD("get_iterations_per_second"),&_OS::get_iterations_per_second);
@@ -774,11 +823,13 @@ void _OS::_bind_methods() {
 	ObjectTypeDB::bind_method(_MD("get_cmdline_args"),&_OS::get_cmdline_args);
 	ObjectTypeDB::bind_method(_MD("get_main_loop"),&_OS::get_main_loop);
 
-	ObjectTypeDB::bind_method(_MD("get_date"),&_OS::get_date);
-	ObjectTypeDB::bind_method(_MD("get_time"),&_OS::get_time);
+	ObjectTypeDB::bind_method(_MD("get_date","utc"),&_OS::get_date,DEFVAL(false));
+	ObjectTypeDB::bind_method(_MD("get_time","utc"),&_OS::get_time,DEFVAL(false));
+	ObjectTypeDB::bind_method(_MD("get_time_zone_info"),&_OS::get_time_zone_info);
 	ObjectTypeDB::bind_method(_MD("get_unix_time"),&_OS::get_unix_time);
+	ObjectTypeDB::bind_method(_MD("get_system_time_secs"), &_OS::get_system_time_secs);
 
-	ObjectTypeDB::bind_method(_MD("set_icon"),&_OS::set_icon);
+	ObjectTypeDB::bind_method(_MD("set_icon","icon"),&_OS::set_icon);
 
 	ObjectTypeDB::bind_method(_MD("delay_usec","usec"),&_OS::delay_usec);
 	ObjectTypeDB::bind_method(_MD("delay_msec","msec"),&_OS::delay_msec);
@@ -817,9 +868,9 @@ void _OS::_bind_methods() {
 	ObjectTypeDB::bind_method(_MD("get_frames_per_second"),&_OS::get_frames_per_second);
 
 	ObjectTypeDB::bind_method(_MD("print_all_textures_by_size"),&_OS::print_all_textures_by_size);
-	ObjectTypeDB::bind_method(_MD("print_resources_by_type"),&_OS::print_resources_by_type);
+	ObjectTypeDB::bind_method(_MD("print_resources_by_type","types"),&_OS::print_resources_by_type);
 
-	ObjectTypeDB::bind_method(_MD("native_video_play"),&_OS::native_video_play);
+	ObjectTypeDB::bind_method(_MD("native_video_play","path","volume","audio_track","subtitle_track"),&_OS::native_video_play);
 	ObjectTypeDB::bind_method(_MD("native_video_is_playing"),&_OS::native_video_is_playing);
 	ObjectTypeDB::bind_method(_MD("native_video_stop"),&_OS::native_video_stop);
 	ObjectTypeDB::bind_method(_MD("native_video_pause"),&_OS::native_video_pause);
@@ -830,6 +881,9 @@ void _OS::_bind_methods() {
 
 	ObjectTypeDB::bind_method(_MD("set_use_file_access_save_and_swap","enabled"),&_OS::set_use_file_access_save_and_swap);
 
+	ObjectTypeDB::bind_method(_MD("alert","text","title"),&_OS::alert,DEFVAL("Alert!"));
+
+	ObjectTypeDB::bind_method(_MD("set_thread_name","name"),&_OS::set_thread_name);
 
 
 	BIND_CONSTANT( DAY_SUNDAY );
@@ -852,6 +906,14 @@ void _OS::_bind_methods() {
 	BIND_CONSTANT( MONTH_OCTOBER );
 	BIND_CONSTANT( MONTH_NOVEMBER );
 	BIND_CONSTANT( MONTH_DECEMBER );
+
+	BIND_CONSTANT( SCREEN_ORIENTATION_LANDSCAPE );
+	BIND_CONSTANT( SCREEN_ORIENTATION_PORTRAIT );
+	BIND_CONSTANT( SCREEN_ORIENTATION_REVERSE_LANDSCAPE );
+	BIND_CONSTANT( SCREEN_ORIENTATION_REVERSE_PORTRAIT );
+	BIND_CONSTANT( SCREEN_ORIENTATION_SENSOR_LANDSCAPE );
+	BIND_CONSTANT( SCREEN_ORIENTATION_SENSOR_PORTRAIT );
+	BIND_CONSTANT( SCREEN_ORIENTATION_SENSOR );
 
 	BIND_CONSTANT( SYSTEM_DIR_DESKTOP);
 	BIND_CONSTANT( SYSTEM_DIR_DCIM );
@@ -1259,9 +1321,9 @@ String _File::get_line() const{
 
 }
 
-Vector<String> _File::get_csv_line() const {
+Vector<String> _File::get_csv_line(String delim) const {
 	ERR_FAIL_COND_V(!f,Vector<String>());
-	return f->get_csv_line();
+	return f->get_csv_line(delim);
 }
 
 /**< use this for files WRITTEN in _big_ endian machines (ie, amiga/mac)
@@ -1444,7 +1506,7 @@ void _File::_bind_methods() {
 	ObjectTypeDB::bind_method(_MD("set_endian_swap","enable"),&_File::set_endian_swap);
 	ObjectTypeDB::bind_method(_MD("get_error:Error"),&_File::get_error);
 	ObjectTypeDB::bind_method(_MD("get_var"),&_File::get_var);
-	ObjectTypeDB::bind_method(_MD("get_csv_line"),&_File::get_csv_line);
+	ObjectTypeDB::bind_method(_MD("get_csv_line","delim"),&_File::get_csv_line,DEFVAL(","));
 
 	ObjectTypeDB::bind_method(_MD("store_8","value"),&_File::store_8);
 	ObjectTypeDB::bind_method(_MD("store_16","value"),&_File::store_16);
@@ -1466,6 +1528,7 @@ void _File::_bind_methods() {
 	BIND_CONSTANT( READ );
 	BIND_CONSTANT( WRITE );
 	BIND_CONSTANT( READ_WRITE );
+	BIND_CONSTANT( WRITE_READ );
 }
 
 _File::_File(){
@@ -1668,11 +1731,88 @@ Variant _Marshalls::base64_to_variant(const String& p_str) {
 	return v;
 };
 
+String _Marshalls::raw_to_base64(const DVector<uint8_t> &p_arr) {
+
+	int len = p_arr.size();
+	DVector<uint8_t>::Read r = p_arr.read();
+
+	int b64len = len / 3 * 4 + 4 + 1;
+	DVector<uint8_t> b64buff;
+	b64buff.resize(b64len);
+	DVector<uint8_t>::Write w64 = b64buff.write();
+
+	int strlen = base64_encode((char*)(&w64[0]), (char*)(&r[0]), len);
+	w64[strlen] = 0;
+	String ret = (char*)&w64[0];
+
+	return ret;
+};
+
+DVector<uint8_t> _Marshalls::base64_to_raw(const String &p_str) {
+
+	int strlen = p_str.length();
+	CharString cstr = p_str.ascii();
+
+	int arr_len;
+	DVector<uint8_t> buf;
+	{
+		buf.resize(strlen / 4 * 3 + 1);
+		DVector<uint8_t>::Write w = buf.write();
+
+		arr_len = base64_decode((char*)(&w[0]), (char*)cstr.get_data(), strlen);
+	};
+	buf.resize(arr_len);
+
+	// conversion from DVector<uint8_t> to raw array?
+	return buf;
+};
+
+String _Marshalls::utf8_to_base64(const String& p_str) {
+
+	CharString cstr = p_str.utf8();
+	int len = cstr.length();
+
+	int b64len = len / 3 * 4 + 4 + 1;
+	DVector<uint8_t> b64buff;
+	b64buff.resize(b64len);
+	DVector<uint8_t>::Write w64 = b64buff.write();
+
+	int strlen = base64_encode((char*)(&w64[0]), (char*)cstr.get_data(), len);
+
+	w64[strlen] = 0;
+	String ret = (char*)&w64[0];
+
+	return ret;
+};
+
+String _Marshalls::base64_to_utf8(const String& p_str) {
+
+	int strlen = p_str.length();
+	CharString cstr = p_str.ascii();
+
+	DVector<uint8_t> buf;
+	buf.resize(strlen / 4 * 3 + 1 + 1);
+	DVector<uint8_t>::Write w = buf.write();
+
+	int len = base64_decode((char*)(&w[0]), (char*)cstr.get_data(), strlen);
+
+	w[len] = 0;
+	String ret = String::utf8((char*)&w[0]);
+
+	return ret;
+};
+
 
 void _Marshalls::_bind_methods() {
 
 	ObjectTypeDB::bind_method(_MD("variant_to_base64:String","variant"),&_Marshalls::variant_to_base64);
 	ObjectTypeDB::bind_method(_MD("base64_to_variant:Variant","base64_str"),&_Marshalls::base64_to_variant);
+
+	ObjectTypeDB::bind_method(_MD("raw_to_base64:String","array"),&_Marshalls::raw_to_base64);
+	ObjectTypeDB::bind_method(_MD("base64_to_raw:RawArray","base64_str"),&_Marshalls::base64_to_raw);
+
+	ObjectTypeDB::bind_method(_MD("utf8_to_base64:String","utf8_str"),&_Marshalls::utf8_to_base64);
+	ObjectTypeDB::bind_method(_MD("base64_to_utf8:String","base64_str"),&_Marshalls::base64_to_utf8);
 
 };
 
@@ -1762,6 +1902,9 @@ void _Thread::_start_func(void *ud) {
 	memdelete(tud);
 	Variant::CallError ce;
 	const Variant* arg[1]={&t->userdata};
+
+	Thread::set_name(t->target_method);
+
 	t->ret=t->target_instance->call(t->target_method,arg,1,ce);
 	if (ce.error!=Variant::CallError::CALL_OK) {
 
@@ -1785,6 +1928,7 @@ void _Thread::_start_func(void *ud) {
 			} break;
 			default: {}
 		}
+
 
 		ERR_EXPLAIN("Could not call function '"+t->target_method.operator String()+"'' starting thread ID: "+t->get_id()+" Reason: "+reason);
 		ERR_FAIL();
@@ -1855,7 +1999,7 @@ void _Thread::_bind_methods() {
 	ObjectTypeDB::bind_method(_MD("start:Error","instance","method","userdata","priority"),&_Thread::start,DEFVAL(Variant()),DEFVAL(PRIORITY_NORMAL));
 	ObjectTypeDB::bind_method(_MD("get_id"),&_Thread::get_id);
 	ObjectTypeDB::bind_method(_MD("is_active"),&_Thread::is_active);
-	ObjectTypeDB::bind_method(_MD("wait_to_finish:var"),&_Thread::wait_to_finish);
+	ObjectTypeDB::bind_method(_MD("wait_to_finish:Variant"),&_Thread::wait_to_finish);
 
 	BIND_CONSTANT( PRIORITY_LOW );
 	BIND_CONSTANT( PRIORITY_NORMAL );

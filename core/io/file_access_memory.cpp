@@ -5,7 +5,7 @@
 /*                           GODOT ENGINE                                */
 /*                    http://www.godotengine.org                         */
 /*************************************************************************/
-/* Copyright (c) 2007-2015 Juan Linietsky, Ariel Manzur.                 */
+/* Copyright (c) 2007-2016 Juan Linietsky, Ariel Manzur.                 */
 /*                                                                       */
 /* Permission is hereby granted, free of charge, to any person obtaining */
 /* a copy of this software and associated documentation files (the       */
@@ -73,6 +73,14 @@ bool FileAccessMemory::file_exists(const String& p_name) {
 	return files && (files->find(name) != NULL);
 }
 
+
+Error FileAccessMemory::open_custom(const uint8_t* p_data, int p_len) {
+
+	data=(uint8_t*)p_data;
+	length=p_len;
+	pos=0;
+	return OK;
+}
 
 Error FileAccessMemory::_open(const String& p_path, int p_mode_flags) {
 
