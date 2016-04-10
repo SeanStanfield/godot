@@ -450,13 +450,18 @@ void TileMap::_update_dirty_quadrants() {
 					_fix_cell_transform(xform,c,shape_ofs+center_ofs,s);
 
 					if (debug_canvas_item) {
+						vs->canvas_item_add_set_transform(debug_canvas_item,xform);
 						shape->draw(debug_canvas_item,debug_collision_color);
 
 					}
-					ps->body_add_shape(q.body,shape->get_rid(),xform);					
+					ps->body_add_shape(q.body,shape->get_rid(),xform);
 					ps->body_set_shape_metadata(q.body,shape_idx++,Vector2(E->key().x,E->key().y));
 
 				}
+			}
+
+			if (debug_canvas_item) {
+				vs->canvas_item_add_set_transform(debug_canvas_item,Matrix32());
 			}
 
 			if (navigation) {
@@ -499,6 +504,7 @@ void TileMap::_update_dirty_quadrants() {
 		}
 
 		dirty_quadrant_list.remove( dirty_quadrant_list.first() );
+		quadrant_order_dirty=true;
 	}
 
 
@@ -517,6 +523,14 @@ void TileMap::_update_dirty_quadrants() {
 		}
 
 		quadrant_order_dirty=false;
+	}
+
+	for(int i=0;i<get_child_count();i++) {
+
+		CanvasItem *c=get_child(i)->cast_to<CanvasItem>();
+
+		if (c)
+			VS::get_singleton()->canvas_item_raise(c->get_canvas_item());
 	}
 
 	_recompute_rect_cache();
@@ -1205,6 +1219,7 @@ void TileMap::_bind_methods() {
 	ObjectTypeDB::bind_method(_MD("get_cellv","pos"),&TileMap::get_cellv);
 	ObjectTypeDB::bind_method(_MD("is_cell_x_flipped","x","y"),&TileMap::is_cell_x_flipped);
 	ObjectTypeDB::bind_method(_MD("is_cell_y_flipped","x","y"),&TileMap::is_cell_y_flipped);
+	ObjectTypeDB::bind_method(_MD("is_cell_transposed","x","y"),&TileMap::is_cell_transposed);
 
 	ObjectTypeDB::bind_method(_MD("clear"),&TileMap::clear);
 

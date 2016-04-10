@@ -33,10 +33,13 @@
 #include "joystick_linux.h"
 
 #include <linux/input.h>
-#include <libudev.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <errno.h>
+
+#ifdef UDEV_ENABLED
+#include <libudev.h>
+#endif
 
 #define LONG_BITS  (sizeof(long) * 8)
 #define test_bit(nr, addr)  (((1UL << ((nr) % LONG_BITS)) & ((addr)[(nr) / LONG_BITS])) != 0)
@@ -86,6 +89,8 @@ joystick_linux::joystick_linux(InputDefault *in)
 joystick_linux::~joystick_linux() {
 	exit_udev = true;
 	Thread::wait_to_finish(joy_thread);
+	memdelete(joy_thread);
+	memdelete(joy_mutex);
 	close_joystick();
 }
 
@@ -99,14 +104,18 @@ void joystick_linux::joy_thread_func(void *p_user) {
 }
 
 void joystick_linux::run_joystick_thread() {
-
+#ifdef UDEV_ENABLED
 	udev *_udev = udev_new();
 	ERR_FAIL_COND(!_udev);
 	enumerate_joysticks(_udev);
 	monitor_joysticks(_udev);
 	udev_unref(_udev);
+#else
+	monitor_joysticks();
+#endif
 }
 
+#ifdef UDEV_ENABLED
 void joystick_linux::enumerate_joysticks(udev *p_udev) {
 
 	udev_enumerate *enumerate;
@@ -192,6 +201,23 @@ void joystick_linux::monitor_joysticks(udev *p_udev) {
 	//printf("exit udev\n");
 	udev_monitor_unref(mon);
 }
+#endif
+
+void joystick_linux::monitor_joysticks() {
+
+	while (!exit_udev) {
+		joy_mutex->lock();
+		for (int i = 0; i < 32; i++) {
+			char fname[64];
+			sprintf(fname, "/dev/input/event%d", i);
+			if (attached_devices.find(fname) == -1) {
+				open_joystick(fname);
+			}
+		}
+		joy_mutex->unlock();
+		usleep(1000000); // 1s
+	}
+}
 
 int joystick_linux::get_free_joy_slot() const {
 
@@ -229,6 +255,7 @@ void joystick_linux::close_joystick(int p_id) {
 
 		close(joy.fd);
 		joy.fd = -1;
+		attached_devices.remove(attached_devices.find(joy.devpath));
 		input->joy_connection_changed(p_id, false, "");
 	};
 };
@@ -301,6 +328,9 @@ void joystick_linux::open_joystick(const char *p_path) {
 		unsigned long evbit[NBITS(EV_MAX)] = { 0 };
 		unsigned long keybit[NBITS(KEY_MAX)] = { 0 };
 		unsigned long absbit[NBITS(ABS_MAX)] = { 0 };
+
+		// add to attached devices so we don't try to open it again
+		attached_devices.push_back(String(p_path));
 
 		if ((ioctl(fd, EVIOCGBIT(0, sizeof(evbit)), evbit) < 0) ||
 		    (ioctl(fd, EVIOCGBIT(EV_KEY, sizeof(keybit)), keybit) < 0) ||
@@ -401,6 +431,12 @@ uint32_t joystick_linux::process_joysticks(uint32_t p_event_id) {
 			for (int j = 0; j < len; j++) {
 
 				input_event &ev = events[j];
+
+				// ev may be tainted and out of MAX_KEY range, which will cause
+				// joy->key_map[ev.code] to crash
+				if( ev.code < 0 || ev.code >= MAX_KEY )
+					return p_event_id;
+
 				switch (ev.type) {
 				case EV_KEY:
 					p_event_id = input->joy_button(p_event_id, i, joy->key_map[ev.code], ev.value);
@@ -446,6 +482,9 @@ uint32_t joystick_linux::process_joysticks(uint32_t p_event_id) {
 				p_event_id = input->joy_axis(p_event_id, i, index, joy->curr_axis[index]);
 			}
 		}
+		if (len == 0 || (len < 0 && errno != EAGAIN)) {
+			close_joystick(i);
+		};
 	}
 	joy_mutex->unlock();
 	return p_event_id;

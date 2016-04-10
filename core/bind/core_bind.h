@@ -26,6 +26,7 @@ public:
 	void set_abort_on_missing_resources(bool p_abort);
 	StringArray get_dependencies(const String& p_path);
 	bool has(const String& p_path);
+	Ref<ResourceImportMetadata> load_import_metadata(const String& p_path);
 
 	_ResourceLoader();
 };
@@ -80,7 +81,9 @@ public:
 	};
 
 	enum Month {
-		MONTH_JANUARY,
+		/// Start at 1 to follow Windows SYSTEMTIME structure
+		/// https://msdn.microsoft.com/en-us/library/windows/desktop/ms724950(v=vs.85).aspx
+		MONTH_JANUARY = 1,
 		MONTH_FEBRUARY,
 		MONTH_MARCH,
 		MONTH_APRIL,
@@ -127,10 +130,13 @@ public:
 	virtual void set_window_maximized(bool p_enabled);
 	virtual bool is_window_maximized() const;
 
+	virtual void set_borderless_window(bool p_borderless);
+	virtual bool get_borderless_window() const;
 
 	Error native_video_play(String p_path, float p_volume, String p_audio_track, String p_subtitle_track);
 	bool native_video_is_playing();
 	void native_video_pause();
+	void native_video_unpause();
 	void native_video_stop();
 
 	void set_iterations_per_second(int p_ips);
@@ -206,6 +212,9 @@ public:
 	void set_icon(const Image& p_icon);
 	Dictionary get_date(bool utc) const;
 	Dictionary get_time(bool utc) const;
+	Dictionary get_datetime(bool utc) const;
+	Dictionary get_datetime_from_unix_time(uint64_t unix_time_val) const;
+	uint64_t get_unix_time_from_datetime(Dictionary datetime) const;
 	Dictionary get_time_zone_info() const;
 	uint64_t get_unix_time() const;
 	uint64_t get_system_time_secs() const;
@@ -366,6 +375,7 @@ public:
 	DVector<uint8_t> get_buffer(int p_length) const; ///< get an array of bytes
 	String get_line() const;
 	String get_as_text() const;
+	String get_md5(const String& p_path) const;
 
 	/**< use this for files WRITTEN in _big_ endian machines (ie, amiga/mac)
 	 * It's not about the current CPU type but file formats.

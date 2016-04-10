@@ -167,9 +167,9 @@ void OS_X11::initialize(const VideoMode& p_desired,int p_video_driver,int p_audi
 	// maybe contextgl wants to be in charge of creating the window
 	//print_line("def videomode "+itos(current_videomode.width)+","+itos(current_videomode.height));
 #if defined(OPENGL_ENABLED) || defined(LEGACYGL_ENABLED) || defined(GLES2_ENABLED)
+
 	context_gl = memnew( ContextGL_X11( x11_display, x11_window,current_videomode, false ) );
 	context_gl->initialize();
-
 
 	rasterizer = memnew( RasterizerGLES2 );
 
@@ -541,7 +541,6 @@ void OS_X11::set_mouse_mode(MouseMode p_mode) {
 	} else {
 		do_mouse_warp=false;
 	}
-
 }
 
 void OS_X11::warp_mouse_pos(const Point2& p_to) {
@@ -566,7 +565,6 @@ OS::MouseMode OS_X11::get_mouse_mode() const {
 }
 
 int OS_X11::get_mouse_button_state() const {
-
 	return last_button_state;
 }
 
@@ -1025,8 +1023,6 @@ void OS_X11::handle_key_event(XKeyEvent *p_event, bool p_echo) {
 	KeySym keysym_keycode=0; // keysym used to find a keycode
 	KeySym keysym_unicode=0; // keysym used to find unicode
 					
-	int nbytes=0; // bytes the string takes
-						 
 	// XLookupString returns keysyms usable as nice scancodes/
 	char str[256+1];
 	XLookupString(xkeyevent, str, 256, &keysym_keycode, NULL);
@@ -1188,10 +1184,8 @@ void OS_X11::process_xevents() {
 			break;
 
 		case VisibilityNotify: {
-
 			XVisibilityEvent * visibility = (XVisibilityEvent *)&event;
 			minimized = (visibility->state == VisibilityFullyObscured);
-
 		} break;
 		case LeaveNotify: {
 
@@ -1336,7 +1330,6 @@ void OS_X11::process_xevents() {
 			// Motion is also simple.
 			// A little hack is in order
 			// to be able to send relative motion events.
-			
 			Point2i pos( event.xmotion.x, event.xmotion.y );
 
 			if (mouse_mode==MOUSE_MODE_CAPTURED) {
@@ -1365,9 +1358,7 @@ void OS_X11::process_xevents() {
 				XWarpPointer(x11_display, None, x11_window,
 					      0,0,0,0, (int)center.x, (int)center.y);
 #endif
-
 			}
-
 			
 			if (!last_mouse_pos_valid) {
 				
@@ -1827,6 +1818,4 @@ OS_X11::OS_X11() {
 	minimized = false;
 	xim_style=0L;
 	mouse_mode=MOUSE_MODE_VISIBLE;
-
-
 };

@@ -150,6 +150,7 @@ public:
 
 	EditorPlugin* get_editor(Object *p_object);
 	EditorPlugin* get_subeditor(Object *p_object);
+	Vector<EditorPlugin*> get_subeditors(Object *p_object);
 	EditorPlugin* get_editor(String p_name);
 
 	void copy_object_params(Object *p_object);
@@ -164,6 +165,9 @@ public:
 
 	void add_editor_plugin(EditorPlugin *p_plugin);
 	void remove_editor_plugin(EditorPlugin *p_plugin);
+
+	int get_editor_plugin_count() const;
+	EditorPlugin *get_editor_plugin(int p_idx);
 
 	UndoRedo &get_undo_redo();
 
@@ -228,6 +232,7 @@ public:
 	List<Node*> selected_node_list;
 
 	void _update_nl();
+	Array _get_selected_nodes();
 protected:
 
 	static void _bind_methods();

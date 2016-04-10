@@ -1129,7 +1129,7 @@ Error EditorExportPlatformAndroid::export_project(const String& p_path, bool p_d
 		if (file=="lib/armeabi/libgodot_android.so" && !export_arm) {
 			skip=true;
 		}
-		
+
 		if (file.begins_with("META-INF") && _signed) {
 			skip=true;
 		}
@@ -1493,6 +1493,16 @@ void EditorExportPlatformAndroid::_device_poll_thread(void *ud) {
 		OS::get_singleton()->delay_usec(3000000);
 	}
 
+	if (EditorSettings::get_singleton()->get("android/shutdown_adb_on_exit")) {
+		String adb=EditorSettings::get_singleton()->get("android/adb");
+		if (!FileAccess::exists(adb)) {
+			return; //adb not configured
+		}
+
+		List<String> args;
+		args.push_back("kill-server");
+		OS::get_singleton()->execute(adb,args,true);
+	};
 }
 
 Error EditorExportPlatformAndroid::run(int p_device, int p_flags) {
@@ -1557,6 +1567,7 @@ Error EditorExportPlatformAndroid::run(int p_device, int p_flags) {
 	args.push_back("-s");
 	args.push_back(devices[p_device].id);
 	args.push_back("install");
+	args.push_back("-r");
 	args.push_back(export_to);
 
 	err = OS::get_singleton()->execute(adb,args,true,NULL,NULL,&rv);
@@ -1761,6 +1772,7 @@ void register_android_exporter() {
 	//EditorSettings::get_singleton()->add_property_hint(PropertyInfo(Variant::STRING,"android/release_keystore",PROPERTY_HINT_GLOBAL_FILE,"*.keystore"));
 	EDITOR_DEF("android/timestamping_authority_url","");
 	EDITOR_DEF("android/use_remote_debug_over_adb",false);
+	EDITOR_DEF("android/shutdown_adb_on_exit",true);
 
 	Ref<EditorExportPlatformAndroid> exporter = Ref<EditorExportPlatformAndroid>( memnew(EditorExportPlatformAndroid) );
 	EditorImportExport::get_singleton()->add_export_platform(exporter);
