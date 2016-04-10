@@ -2473,7 +2473,7 @@ ScriptEditor::ScriptEditor(EditorNode *p_editor) {
 	site_search = memnew( ToolButton );
 	site_search->set_text("Tutorials");
 	site_search->connect("pressed",this,"_menu_option",varray(SEARCH_WEBSITE));
-	menu_hb->add_child(site_search);
+	//menu_hb->add_child(site_search);
 	site_search->set_tooltip("Open http://www.godotengine.org at tutorials section.");
 
 	class_search = memnew( ToolButton );

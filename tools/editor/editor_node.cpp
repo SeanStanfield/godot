@@ -5374,14 +5374,14 @@ EditorNode::EditorNode() {
 	{
 		Control *sp = memnew( Control );
 		sp->set_custom_minimum_size(Size2(30,0));
-		menu_hb->add_child(sp);
+		//menu_hb->add_child(sp);
 	}
 
 	PanelContainer *editor_region = memnew( PanelContainer );
 	editor_region->add_style_override("panel",gui_base->get_stylebox("hover","Button"));
 	main_editor_button_vb = memnew( HBoxContainer );
 	editor_region->add_child(main_editor_button_vb);
-	menu_hb->add_child(editor_region);
+	//menu_hb->add_child(editor_region);
 
 	//menu_hb->add_spacer();
 #if 0
@@ -5438,8 +5438,9 @@ EditorNode::EditorNode() {
 	export_button->connect("pressed",this,"_menu_option",varray(FILE_EXPORT_PROJECT));
 	export_button->set_focus_mode(Control::FOCUS_NONE);
 	left_menu_hb->add_child(export_button);
+	left_menu_hb->add_child(editor_region);
 
-	menu_hb->add_spacer();
+	//menu_hb->add_spacer();
 
 	//Separator *s1 = memnew( VSeparator );
 	//menu_panel->add_child(s1);
@@ -5459,7 +5460,7 @@ EditorNode::EditorNode() {
 	play_cc->add_child(top_region);
 
 	HBoxContainer *play_hb = memnew( HBoxContainer );
-	top_region->add_child(play_hb);
+	left_menu_hb->add_child(play_hb);
 
 	play_button = memnew( ToolButton );
 	play_hb->add_child(play_button);
@@ -5491,7 +5492,7 @@ EditorNode::EditorNode() {
 	play_hb->add_child(run_native);
 	native_play_button = memnew( MenuButton );
 	native_play_button->set_text("NTV");
-	menu_hb->add_child(native_play_button);
+	//menu_hb->add_child(native_play_button);
 	native_play_button->hide();
 	native_play_button->get_popup()->connect("item_pressed",this,"_run_in_device");
 	run_native->connect("native_run",this,"_menu_option",varray(RUN_PLAY_NATIVE));
@@ -5555,12 +5556,12 @@ EditorNode::EditorNode() {
 
 
 	progress_hb = memnew( BackgroundProgress );
-	menu_hb->add_child(progress_hb);
+	//menu_hb->add_child(progress_hb);
 
 	{
 		Control *sp = memnew( Control );
 		sp->set_custom_minimum_size(Size2(30,0));
-		menu_hb->add_child(sp);
+		//menu_hb->add_child(sp);
 	}
 
 
@@ -5582,7 +5583,7 @@ EditorNode::EditorNode() {
 	{
 		Control *sp = memnew( Control );
 		sp->set_custom_minimum_size(Size2(30,0));
-		menu_hb->add_child(sp);
+		//menu_hb->add_child(sp);
 	}
 
 
@@ -5591,13 +5592,13 @@ EditorNode::EditorNode() {
 	top_region->add_style_override("panel",gui_base->get_stylebox("hover","Button"));
 	HBoxContainer *right_menu_hb = memnew( HBoxContainer );
 	top_region->add_child(right_menu_hb);
-	menu_hb->add_child(top_region);
+	//menu_hb->add_child(top_region);
 
 
 	settings_menu = memnew( MenuButton );
 	settings_menu->set_text("Settings");
 	//settings_menu->set_anchor(MARGIN_RIGHT,ANCHOR_END);
-	right_menu_hb->add_child( settings_menu );
+	left_menu_hb->add_child( settings_menu );
 	p=settings_menu->get_popup();
 
 	//p->add_item("Export Settings",SETTINGS_EXPORT_PREFERENCES);
@@ -5621,14 +5622,14 @@ EditorNode::EditorNode() {
 	layout_dialog->connect("name_confirmed", this,"_dialog_action");
 
 	sources_button = memnew( ToolButton );
-	right_menu_hb->add_child(sources_button);
+	left_menu_hb->add_child(sources_button);
 	sources_button->set_icon(gui_base->get_icon("DependencyOk","EditorIcons"));
 	sources_button->connect("pressed",this,"_menu_option",varray(SOURCES_REIMPORT));
 	sources_button->set_tooltip("Alerts when an external resource has changed.");
 
 	update_menu = memnew( MenuButton );
 	update_menu->set_tooltip("Spins when the editor window repaints!");
-	right_menu_hb->add_child(update_menu);
+	left_menu_hb->add_child(update_menu);
 	update_menu->set_icon(gui_base->get_icon("Progress1","EditorIcons"));
 	p=update_menu->get_popup();
 	p->add_check_item("Update Always",SETTINGS_UPDATE_ALWAYS);
