@@ -60,7 +60,7 @@ def get_opts():
 	('use_static_cpp','link stdc++ statically','no'),
 	('use_sanitizer','Use llvm compiler sanitize address','no'),
 	('use_leak_sanitizer','Use llvm compiler sanitize memory leaks','no'),
-	('pulseaudio','Detect & Use pulseaudio','yes'),
+	('pulseaudio','Detect & Use pulseaudio','no'),
 	('udev','Use udev for gamepad connection callbacks','no'),
 	('debug_release', 'Add debug symbols to release version','no'),
 	]
@@ -69,7 +69,7 @@ def get_flags():
 
 	return [
 	('builtin_zlib', 'no'),
-	('glew', 'yes'),
+	('glew', 'no'),
 	("openssl", "yes"),
 	('freetype','yes'), #use system freetype
 
@@ -150,7 +150,7 @@ def configure(env):
 
 
 
-	env.Append(CPPFLAGS=['-DOPENGL_ENABLED'])
+	#env.Append(CPPFLAGS=['-DOPENGL_ENABLED'])
 
 	if os.system("pkg-config --exists alsa")==0:
 		print("Enabling ALSA")
@@ -180,8 +180,8 @@ def configure(env):
 		else:
 			print("PulseAudio development libraries not found, disabling driver")
 
-	env.Append(CPPFLAGS=['-DX11_ENABLED','-DUNIX_ENABLED','-DGLES2_ENABLED','-DGLES_OVER_GL'])
-	env.Append(LIBS=['GL', 'pthread', 'z'])
+	env.Append(CPPFLAGS=['-DX11_ENABLED','-DUNIX_ENABLED','-DGLES2_ENABLED', '-DPTHREAD_NO_RENAME'])
+	env.Append(LIBS=['c','m','stdc++','GLESv2', 'EGL', 'GLES_CM', 'pthread','asound','z','Xau','Xdmcp','Xrender','IMGegl','srv_um','Xfixes','Xext'])
 	if (platform.system() == "Linux"):
 		env.Append(LIBS='dl')
 	#env.Append(CPPFLAGS=['-DMPC_FIXED_POINT'])
@@ -206,7 +206,7 @@ def configure(env):
 	if (env["use_static_cpp"]=="yes"):
 		env.Append(LINKFLAGS=['-static-libstdc++'])
 
-	list_of_x86 = ['x86_64', 'x86', 'i386', 'i586']
-	if any(platform.machine() in s for s in list_of_x86):
-		env["x86_opt_gcc"]=True
+#	list_of_x86 = ['x86_64', 'x86', 'i386', 'i586']
+#	if any(platform.machine() in s for s in list_of_x86):
+#		env["x86_opt_gcc"]=True
 

@@ -78,7 +78,7 @@ const char * OS_X11::get_video_driver_name(int p_driver) const {
 }
 
 OS::VideoMode OS_X11::get_default_video_mode() const {
-	return OS::VideoMode(1024,600,false);
+	return OS::VideoMode(800,480,false);
 }
 
 int OS_X11::get_audio_driver_count() const {
@@ -201,7 +201,7 @@ void OS_X11::initialize(const VideoMode& p_desired,int p_video_driver,int p_audi
 
 	// maybe contextgl wants to be in charge of creating the window
 	//print_line("def videomode "+itos(current_videomode.width)+","+itos(current_videomode.height));
-#if defined(OPENGL_ENABLED) || defined(LEGACYGL_ENABLED)
+#if defined(OPENGL_ENABLED) || defined(LEGACYGL_ENABLED) || defined(GLES2_ENABLED)
 
 	context_gl = memnew( ContextGL_X11( x11_display, x11_window,current_videomode, false ) );
 	context_gl->initialize();
