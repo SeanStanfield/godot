@@ -180,7 +180,7 @@ def configure(env):
 		else:
 			print("PulseAudio development libraries not found, disabling driver")
 
-	env.Append(CPPFLAGS=['-DX11_ENABLED','-DUNIX_ENABLED','-DGLES2_ENABLED', '-DPTHREAD_NO_RENAME'])
+	env.Append(CPPFLAGS=['-DX11_ENABLED','-DUNIX_ENABLED','-DGLES2_ENABLED', '-DPTHREAD_NO_RENAME','-DNEON'])
 	env.Append(LIBS=['c','m','stdc++','GLESv2', 'EGL', 'GLES_CM', 'pthread','asound','z','Xau','Xdmcp','Xrender','IMGegl','srv_um','Xfixes','Xext'])
 	if (platform.system() == "Linux"):
 		env.Append(LIBS='dl')
