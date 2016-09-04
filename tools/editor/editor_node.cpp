@@ -2684,7 +2684,7 @@ void EditorNode::_menu_option_confirm(int p_option,bool p_confirmed) {
 
 		} break;
 		case RUN_PLAY_NATIVE: {
-			
+
 			bool autosave = EDITOR_DEF("run/auto_save_before_running",true);
 			if (autosave) {
 				_menu_option_confirm(FILE_SAVE_ALL_SCENES, false);
@@ -5544,7 +5544,7 @@ EditorNode::EditorNode() {
 	dock_vb->add_child(dock_hb);
 
 	dock_select = memnew( Control );
-	dock_select->set_custom_minimum_size(Size2(128,64)*EDSCALE);
+	dock_select->set_custom_minimum_size(Size2(128,32)*EDSCALE);
 	dock_select->connect("input_event",this,"_dock_select_input");
 	dock_select->connect("draw",this,"_dock_select_draw");
 	dock_select->connect("mouse_exit",this,"_dock_popup_exit");
@@ -5559,7 +5559,7 @@ EditorNode::EditorNode() {
 	//dock_select_popoup->set_(Size2(20,20));
 
 	for(int i=0;i<DOCK_SLOT_MAX;i++) {
-		dock_slot[i]->set_custom_minimum_size(Size2(230,220)*EDSCALE);
+		dock_slot[i]->set_custom_minimum_size(Size2(180,170)*EDSCALE);
 		dock_slot[i]->set_v_size_flags(Control::SIZE_EXPAND_FILL);
 		dock_slot[i]->set_popup(dock_select_popoup);
 		dock_slot[i]->connect("pre_popup_pressed",this,"_dock_pre_popup",varray(i));
@@ -5807,8 +5807,8 @@ EditorNode::EditorNode() {
 	top_region->add_style_override("panel",gui_base->get_stylebox("hover","Button"));
 	play_cc->add_child(top_region);
 
-	HBoxContainer *play_hb = memnew( HBoxContainer );
-	top_region->add_child(play_hb);
+	HBoxContainer *play_hb = left_menu_hb;//memnew( HBoxContainer );
+//	top_region->add_child(play_hb);
 
 	play_button = memnew( ToolButton );
 	play_hb->add_child(play_button);
@@ -5933,7 +5933,7 @@ EditorNode::EditorNode() {
 
 	audio_vu = memnew( TextureProgress );
 	CenterContainer *vu_cc = memnew( CenterContainer );
-	vu_cc->add_child(audio_vu);
+	//vu_cc->add_child(audio_vu);
 	vu_cont->add_child(vu_cc);
 	audio_vu->set_under_texture(gui_base->get_icon("VuEmpty","EditorIcons"));
 	audio_vu->set_progress_texture(gui_base->get_icon("VuFull","EditorIcons"));
@@ -5952,9 +5952,9 @@ EditorNode::EditorNode() {
 
 	top_region = memnew( PanelContainer );
 	top_region->add_style_override("panel",gui_base->get_stylebox("hover","Button"));
-	HBoxContainer *right_menu_hb = memnew( HBoxContainer );
-	top_region->add_child(right_menu_hb);
-	menu_hb->add_child(top_region);
+	HBoxContainer *right_menu_hb = left_menu_hb;//memnew( HBoxContainer );
+	//top_region->add_child(right_menu_hb);
+	//menu_hb->add_child(top_region);
 
 
 	settings_menu = memnew( MenuButton );
@@ -6169,7 +6169,7 @@ EditorNode::EditorNode() {
 	scenes_dock = memnew( FileSystemDock(this) );
 	scenes_dock->set_name(TTR("FileSystem"));
 	scenes_dock->set_use_thumbnails(int(EditorSettings::get_singleton()->get("file_dialog/display_mode"))==EditorFileDialog::DISPLAY_THUMBNAILS);
-	dock_slot[DOCK_SLOT_LEFT_UR]->add_child(scenes_dock);
+	dock_slot[DOCK_SLOT_RIGHT_UL]->add_child(scenes_dock);
 	//prop_pallete->add_child(scenes_dock);
 	scenes_dock->connect("open",this,"open_request");
 	scenes_dock->connect("instance",this,"_instance_request");
