@@ -2684,7 +2684,7 @@ void EditorNode::_menu_option_confirm(int p_option,bool p_confirmed) {
 
 		} break;
 		case RUN_PLAY_NATIVE: {
-			
+
 			bool autosave = EDITOR_DEF("run/auto_save_before_running",true);
 			if (autosave) {
 				_menu_option_confirm(FILE_SAVE_ALL_SCENES, false);
@@ -5544,7 +5544,7 @@ EditorNode::EditorNode() {
 	dock_vb->add_child(dock_hb);
 
 	dock_select = memnew( Control );
-	dock_select->set_custom_minimum_size(Size2(128,64)*EDSCALE);
+	dock_select->set_custom_minimum_size(Size2(128,32)*EDSCALE);
 	dock_select->connect("input_event",this,"_dock_select_input");
 	dock_select->connect("draw",this,"_dock_select_draw");
 	dock_select->connect("mouse_exit",this,"_dock_popup_exit");
@@ -5559,7 +5559,7 @@ EditorNode::EditorNode() {
 	//dock_select_popoup->set_(Size2(20,20));
 
 	for(int i=0;i<DOCK_SLOT_MAX;i++) {
-		dock_slot[i]->set_custom_minimum_size(Size2(230,220)*EDSCALE);
+		dock_slot[i]->set_custom_minimum_size(Size2(180,170)*EDSCALE);
 		dock_slot[i]->set_v_size_flags(Control::SIZE_EXPAND_FILL);
 		dock_slot[i]->set_popup(dock_select_popoup);
 		dock_slot[i]->connect("pre_popup_pressed",this,"_dock_pre_popup",varray(i));
@@ -5672,20 +5672,32 @@ EditorNode::EditorNode() {
 	p=file_menu->get_popup();
 	p->add_shortcut(ED_SHORTCUT("editor/new_scene",TTR("New Scene")),FILE_NEW_SCENE);
 	p->add_shortcut(ED_SHORTCUT("editor/new_inherited_scene",TTR("New Inherited Scene..")),FILE_NEW_INHERITED_SCENE);
-	p->add_shortcut(ED_SHORTCUT("editor/open_scene",TTR("Open Scene.."),KEY_MASK_CMD+KEY_O),FILE_OPEN_SCENE);
-	p->add_separator();
-	p->add_shortcut(ED_SHORTCUT("editor/save_scene",TTR("Save Scene"),KEY_MASK_CMD+KEY_S),FILE_SAVE_SCENE);
-	p->add_shortcut(ED_SHORTCUT("editor/save_scene_as",TTR("Save Scene As.."),KEY_MASK_SHIFT+KEY_MASK_CMD+KEY_S),FILE_SAVE_AS_SCENE);
-	p->add_shortcut(ED_SHORTCUT("editor/save_all_scenes",TTR("Save all Scenes"),KEY_MASK_ALT+KEY_MASK_SHIFT+KEY_MASK_CMD+KEY_S),FILE_SAVE_ALL_SCENES);
-	p->add_separator();
+	PopupMenu *pm_open = memnew(PopupMenu );
+	pm_open->set_name("Open");
+	p->add_child(pm_open);
+	p->add_submenu_item(TTR("Open ..."),"Open");
+	pm_open->add_shortcut(ED_SHORTCUT("editor/open_scene",TTR("Open Scene.."),KEY_MASK_CMD+KEY_O),FILE_OPEN_SCENE);
+	pm_open->add_submenu_item(TTR("Open Recent"),"RecentScenes",FILE_OPEN_RECENT);
+	pm_open->connect("item_pressed",this,"_menu_option");
+	PopupMenu *pm_save = memnew(PopupMenu );
+	pm_save->set_name("Save");
+	p->add_child(pm_save);
+	p->add_submenu_item(TTR("Save ..."),"Save");
+	pm_save->add_shortcut(ED_SHORTCUT("editor/save_scene",TTR("Save Scene"),KEY_MASK_CMD+KEY_S),FILE_SAVE_SCENE);
+	pm_save->add_shortcut(ED_SHORTCUT("editor/save_scene_as",TTR("Save Scene As.."),KEY_MASK_SHIFT+KEY_MASK_CMD+KEY_S),FILE_SAVE_AS_SCENE);
+	pm_save->add_shortcut(ED_SHORTCUT("editor/save_all_scenes",TTR("Save all Scenes"),KEY_MASK_ALT+KEY_MASK_SHIFT+KEY_MASK_CMD+KEY_S),FILE_SAVE_ALL_SCENES);
+	pm_save->connect("item_pressed",this,"_menu_option");
 	p->add_shortcut(ED_SHORTCUT("editor/close_scene",TTR("Close Scene"),KEY_MASK_SHIFT+KEY_MASK_CTRL+KEY_W),FILE_CLOSE);
-	p->add_separator();
 	//p->add_shortcut(ED_SHORTCUT("editor/save_scene",TTR("Close Goto Prev. Scene")),FILE_OPEN_PREV,KEY_MASK_SHIFT+KEY_MASK_CMD+KEY_P);
-	p->add_submenu_item(TTR("Open Recent"),"RecentScenes",FILE_OPEN_RECENT);
 	p->add_separator();
-	p->add_shortcut(ED_SHORTCUT("editor/quick_open_scene",TTR("Quick Open Scene.."),KEY_MASK_SHIFT+KEY_MASK_CMD+KEY_O),FILE_QUICK_OPEN_SCENE);
-	p->add_shortcut(ED_SHORTCUT("editor/quick_open_script",TTR("Quick Open Script.."),KEY_MASK_ALT+KEY_MASK_CMD+KEY_O),FILE_QUICK_OPEN_SCRIPT);
-	p->add_shortcut(ED_SHORTCUT("editor/quick_filter_files",TTR("Quick Filter Files.."),KEY_MASK_ALT+KEY_MASK_CMD+KEY_P),FILE_QUICK_OPEN_FILE);
+	PopupMenu *pm_quick = memnew(PopupMenu );
+	pm_quick->set_name("Quick");
+	p->add_child(pm_quick);
+	p->add_submenu_item(TTR("Quick ..."),"Quick");
+    pm_quick->add_shortcut(ED_SHORTCUT("editor/quick_open_scene",TTR("Quick Open Scene.."),KEY_MASK_SHIFT+KEY_MASK_CMD+KEY_O),FILE_QUICK_OPEN_SCENE);
+	pm_quick->add_shortcut(ED_SHORTCUT("editor/quick_open_script",TTR("Quick Open Script.."),KEY_MASK_ALT+KEY_MASK_CMD+KEY_O),FILE_QUICK_OPEN_SCRIPT);
+	pm_quick->add_shortcut(ED_SHORTCUT("editor/quick_filter_files",TTR("Quick Filter Files.."),KEY_MASK_ALT+KEY_MASK_CMD+KEY_P),FILE_QUICK_OPEN_FILE);
+	pm_quick->connect("item_pressed",this,"_menu_option");
 	p->add_separator();
 
 	PopupMenu *pm_export = memnew(PopupMenu );
@@ -5701,12 +5713,11 @@ EditorNode::EditorNode() {
 	p->add_separator();
 	p->add_item(TTR("Undo"),EDIT_UNDO,KEY_MASK_CMD+KEY_Z);
 	p->add_item(TTR("Redo"),EDIT_REDO,KEY_MASK_CMD+KEY_MASK_SHIFT+KEY_Z);
+	p->add_item(TTR("Revert Scene"),EDIT_REVERT);
 	p->add_separator();
 	p->add_item(TTR("Run Script"),FILE_RUN_SCRIPT,KEY_MASK_SHIFT+KEY_MASK_CMD+KEY_R);
 	p->add_separator();
 	p->add_item(TTR("Project Settings"),RUN_SETTINGS);
-	p->add_separator();
-	p->add_item(TTR("Revert Scene"),EDIT_REVERT);
 	p->add_separator();
 #ifdef OSX_ENABLED
 	p->add_item(TTR("Quit to Project List"),RUN_PROJECT_MANAGER,KEY_MASK_SHIFT+KEY_MASK_ALT+KEY_Q);
@@ -5805,10 +5816,10 @@ EditorNode::EditorNode() {
 
 	top_region = memnew( PanelContainer );
 	top_region->add_style_override("panel",gui_base->get_stylebox("hover","Button"));
-	play_cc->add_child(top_region);
+	//play_cc->add_child(top_region);
 
-	HBoxContainer *play_hb = memnew( HBoxContainer );
-	top_region->add_child(play_hb);
+	HBoxContainer *play_hb = left_menu_hb;//memnew( HBoxContainer );
+//	top_region->add_child(play_hb);
 
 	play_button = memnew( ToolButton );
 	play_hb->add_child(play_button);
@@ -5929,12 +5940,12 @@ EditorNode::EditorNode() {
 
 	PanelContainer *vu_cont = memnew( PanelContainer );
 	vu_cont->add_style_override("panel",gui_base->get_stylebox("hover","Button"));
-	menu_hb->add_child(vu_cont);
+	//menu_hb->add_child(vu_cont);
 
 	audio_vu = memnew( TextureProgress );
 	CenterContainer *vu_cc = memnew( CenterContainer );
-	vu_cc->add_child(audio_vu);
-	vu_cont->add_child(vu_cc);
+	//vu_cc->add_child(audio_vu);
+	//vu_cont->add_child(vu_cc);
 	audio_vu->set_under_texture(gui_base->get_icon("VuEmpty","EditorIcons"));
 	audio_vu->set_progress_texture(gui_base->get_icon("VuFull","EditorIcons"));
 	audio_vu->set_max(24);
@@ -5952,9 +5963,9 @@ EditorNode::EditorNode() {
 
 	top_region = memnew( PanelContainer );
 	top_region->add_style_override("panel",gui_base->get_stylebox("hover","Button"));
-	HBoxContainer *right_menu_hb = memnew( HBoxContainer );
-	top_region->add_child(right_menu_hb);
-	menu_hb->add_child(top_region);
+	HBoxContainer *right_menu_hb = left_menu_hb;//memnew( HBoxContainer );
+	//top_region->add_child(right_menu_hb);
+	//menu_hb->add_child(top_region);
 
 
 	settings_menu = memnew( MenuButton );
@@ -6169,7 +6180,7 @@ EditorNode::EditorNode() {
 	scenes_dock = memnew( FileSystemDock(this) );
 	scenes_dock->set_name(TTR("FileSystem"));
 	scenes_dock->set_use_thumbnails(int(EditorSettings::get_singleton()->get("file_dialog/display_mode"))==EditorFileDialog::DISPLAY_THUMBNAILS);
-	dock_slot[DOCK_SLOT_LEFT_UR]->add_child(scenes_dock);
+	dock_slot[DOCK_SLOT_RIGHT_UL]->add_child(scenes_dock);
 	//prop_pallete->add_child(scenes_dock);
 	scenes_dock->connect("open",this,"open_request");
 	scenes_dock->connect("instance",this,"_instance_request");
